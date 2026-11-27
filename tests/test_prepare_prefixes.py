@@ -208,3 +208,38 @@ class CliTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BuildRowsTests(unittest.TestCase):
+    def dataset(self, count=10, length=64):
+        return [{"index": 1000 + i, "tokens": list(range(100 + i, 100 + i + length))} for i in range(count)]
+
+    def test_uses_dataset_index_and_tokens(self):
+        rows = pp.build_rows(self.dataset(), "duped.70m", 3, 42, FakeTokenizer())
+        self.assertEqual(len(rows), 3)
+        for row in rows:
+            self.assertGreaterEqual(row["index"], 1000)
+            self.assertEqual(len(row["ids"]), 64)
+            self.assertEqual(row["text"], decode(row["ids"]))
+
+    def test_rows_pass_through_filters(self):
+        rows = pp.build_rows(self.dataset(), "duped.70m", 5, 42, FakeTokenizer())
+        kept, rejected = pp.apply_filters(rows)
+        self.assertEqual(len(kept) + sum(rejected.values()), 5)
+
+    def test_wrong_length_raises(self):
+        with self.assertRaises(pp.PreparazioneError):
+            pp.build_rows(self.dataset(length=63), "duped.70m", 2, 42, FakeTokenizer())
+
+
+class FinalizeReproductionTests(unittest.TestCase):
+    def test_reviewed_unreproduced_memorized_raises(self):
+        ids = list(range(100, 164))
+        entry = pp.build_entry("m01", "memorized", "duped.70m", 1, ids, FakeTokenizer(), reproduced=False)
+        entry["reviewed"] = True
+        with self.assertRaises(pp.PreparazioneError):
+            pp.finalize_entries([entry], decode)
+
+    def test_default_splits_are_both(self):
+        args = pp.parse_args([])
+        self.assertIsNone(args.split)

@@ -50,7 +50,7 @@ Rischi non citati nella spec:
 | D2 | Pubblicazione di `site/` | **decisa:** workflow Actions, sorgente Pages già impostata (27/11) |
 | D4 | Scenario d'aula | (a) demo del formatore per B e C (1.2.1) |
 | D5 | Testi nel CSV | esclusi di default (1.2.3) |
-| D6 | Campione anche da `deduped.70m` | sì, 10 + 10 (1.2.6) |
+| D6 | Campione anche da `deduped.70m` | **decisa:** sì, 10 + 10 (1.2.6) |
 
 ---
 
@@ -75,6 +75,8 @@ Strumento pronto: `site/netcheck.html` (Claude Code, 27/11). Resta a Pietro apri
 **Fatto quando:** lo script fallisce sulla fixture `memorized` e su un `data/x.json` creato in una cartella temporanea, e passa sull'albero del repository; il workflow `check-data` è verde sulla PR del task; dopo il merge la pagina provvisoria è online. · CA8, K2
 
 ### T2 — Script di preparazione dei prefissi
+**Stato (28/11):** implementato da Vibe (PR #4), corretto dopo la revisione. Le correzioni sono: dataset `EleutherAI/pythia-memorized-evals` al posto del repository del modello, campi `tokens` e `index` del dataset (l'`index` è quello di addestramento, non la posizione della riga), testo decodificato prima dei filtri, entrambi gli split di default (D6 = sì), `--finalize` che rifiuta voci memorizzate rivedute ma non riprodotte da PyTorch, test Python in CI. Da eseguire in locale da Pietro (T3).
+
 `scripts/prepare_prefixes.py`, `scripts/requirements.txt` (versioni fissate: `datasets`, `transformers`, `torch` CPU).
 1. Argomenti: `--split` (ripetibile: `duped.70m`, `deduped.70m`), `--n` (default 200 per split), `--seed` (default 42), `--out data/candidates.json`, `--finalize`.
 2. Carica lo split, campiona con seme fisso.
