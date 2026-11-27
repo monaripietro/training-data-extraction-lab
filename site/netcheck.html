@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verifica di rete del lab</title>
+<meta name="description" content="Controlla se dalla rete in uso si raggiungono gli host necessari al lab di estrazione dati.">
+<style>
+  :root {
+    --bg: #ffffff; --fg: #1b1b1f; --muted: #5a5a66; --line: #d9d9e0;
+    --ok: #0b6b3a; --ko: #a4161a; --warn: #8a5a00; --accent: #1f4fbf; --code: #f3f3f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #141418; --fg: #ececf1; --muted: #a6a6b3; --line: #33333d;
+      --ok: #5fd39a; --ko: #ff8a8a; --warn: #f0c060; --accent: #8fb0ff; --code: #1e1e24;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 1.5rem; margin: 0 0 8px; }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); }
+  button { font: inherit; padding: 10px 16px; border-radius: 8px; border: 1px solid var(--accent);
+    background: var(--accent); color: var(--bg); cursor: pointer; margin: 4px 8px 4px 0; }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  ul.checks { list-style: none; padding: 0; margin: 16px 0; border-top: 1px solid var(--line); }
+  ul.checks li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .badge { display: inline-block; min-width: 5.5em; font-weight: 600; }
+  .ok { color: var(--ok); } .ko { color: var(--ko); } .warn { color: var(--warn); }
+  .detail { display: block; color: var(--muted); font-size: .9rem; overflow-wrap: anywhere; }
+  textarea { width: 100%; min-height: 220px; font: 13px/1.4 ui-monospace, Menlo, Consolas, monospace;
+    background: var(--code); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+  progress { width: 100%; height: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Verifica di rete del lab</h1>
+  <p>La pagina controlla se da questa rete e da questo browser si raggiungono i servizi che servono al lab: Hugging Face per i modelli e jsDelivr per la libreria. Contatta <strong>solo</strong> questi host e non invia dati a nessuno.</p>
+  <p class="muted">Aprila dal computer e dalla rete che userai in aula, con Chrome, Edge o Firefox. Alla fine copia il risultato e incollalo al capo progetto.</p>
+
+  <button id="run" type="button">Avvia la verifica</button>
+  <button id="speed" type="button" class="secondary" disabled>Misura la velocità di download (circa 70 MB)</button>
+  <button id="copy" type="button" class="secondary" disabled>Copia il risultato</button>
+
+  <div id="progressWrap" hidden>
+    <progress id="progress" max="100" value="0"></progress>
+    <span id="progressText" class="detail" aria-live="polite"></span>
+  </div>
+
+  <ul class="checks" id="checks" aria-live="polite"></ul>
+
+  <label for="report" class="muted">Risultato da copiare</label>
+  <textarea id="report" readonly></textarea>
+</main>
+
+<script type="module">
+// Hosts contacted: huggingface.co (+ the hosts it redirects to for large files), cdn.jsdelivr.net.
+const MODELS = ["Xenova/pythia-70m", "Xenova/pythia-70m-deduped"];
+const HF = "https://huggingface.co";
+const JSDELIVR_PROBE = "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0/package.json";
+const TIMEOUT_MS = 20000;
+
+const $ = (id) => document.getElementById(id);
+const results = [];
+let speedCandidate = null;
+
+function addResult(name, status, detail) {
+  results.push({ name, status, detail });
+  const li = document.createElement("li");
+  const label = { ok: "OK", ko: "BLOCCATO", warn: "ATTENZIONE", info: "INFO" }[status];
+  const cls = { ok: "ok", ko: "ko", warn: "warn", info: "muted" }[status];
+  li.innerHTML = `<span class="badge ${cls}">${label}</span> <span></span><span class="detail"></span>`;
+  li.children[1].textContent = name;
+  li.children[2].textContent = detail;
+  $("checks").appendChild(li);
+  renderReport();
+}
+
+function renderReport() {
+  const lines = [
+    "Verifica di rete del lab",
+    `Data: ${new Date().toISOString()}`,
+    `Browser: ${navigator.userAgent}`,
+    "",
+    ...results.map((r) => `[${r.status.toUpperCase()}] ${r.name}: ${r.detail}`),
+  ];
+  $("report").value = lines.join("\n");
+}
+
+async function timedFetch(url, options = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  const start = performance.now();
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal, cache: "no-store" });
+    return { response, ms: Math.round(performance.now() - start) };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function explain(error) {
+  if (error.name === "AbortError") return `nessuna risposta entro ${TIMEOUT_MS / 1000} s`;
+  return "richiesta bloccata o host non raggiungibile (proxy, firewall o filtro dei contenuti)";
+}
+
+function hostOf(url) {
+  try { return new URL(url).host; } catch { return "?"; }
+}
+
+function checkEnvironment() {
+  const env = [];
+  env.push(`contesto sicuro: ${window.isSecureContext ? "sì" : "no"}`);
+  env.push(`WebAssembly: ${typeof WebAssembly === "object" ? "sì" : "no"}`);
+  env.push(`isolamento cross-origin (thread WASM): ${window.crossOriginIsolated ? "sì" : "no"}`);
+  env.push(`core logici: ${navigator.hardwareConcurrency ?? "n.d."}`);
+  env.push(`memoria dichiarata: ${navigator.deviceMemory ? navigator.deviceMemory + " GB" : "n.d."}`);
+  env.push(`Cache API: ${"caches" in window ? "sì" : "no"}`);
+  const wasm = typeof WebAssembly === "object";
+  addResult("Browser", wasm ? "ok" : "ko", env.join("; "));
+  if (!window.crossOriginIsolated) {
+    addResult("Thread WASM", "info",
+      "non disponibili: il modello girerà su un solo thread (atteso su GitHub Pages, incide sui tempi)");
+  }
+}
+
+async function checkStorage() {
+  if (!navigator.storage?.estimate) {
+    addResult("Spazio per la cache", "warn", "stima non disponibile in questo browser");
+    return;
+  }
+  const { quota, usage } = await navigator.storage.estimate();
+  const freeMB = Math.round((quota - usage) / 1e6);
+  addResult("Spazio per la cache", freeMB > 700 ? "ok" : "warn",
+    `circa ${freeMB} MB disponibili (servono circa 300-600 MB per uno o due modelli)`);
+}
+
+async function checkModel(repo) {
+  let siblings;
+  try {
+    const { response, ms } = await timedFetch(`${HF}/api/models/${repo}?blobs=true`);
+    if (!response.ok) {
+      addResult(`Elenco file ${repo}`, "ko", `HTTP ${response.status} da ${hostOf(response.url)}`);
+      return;
+    }
+    siblings = (await response.json()).siblings ?? [];
+    addResult(`Elenco file ${repo}`, "ok", `${siblings.length} file, ${ms} ms`);
+  } catch (error) {
+    addResult(`Elenco file ${repo}`, "ko", explain(error));
+    return;
+  }
+
+  try {
+    const { response, ms } = await timedFetch(`${HF}/${repo}/resolve/main/config.json`);
+    addResult(`config.json ${repo}`, response.ok ? "ok" : "ko",
+      `HTTP ${response.status}, servito da ${hostOf(response.url)}, ${ms} ms`);
+  } catch (error) {
+    addResult(`config.json ${repo}`, "ko", explain(error));
+  }
+
+  const onnx = siblings
+    .filter((s) => /^onnx\/.*\.onnx$/.test(s.rfilename))
+    .sort((a, b) => (a.size ?? 0) - (b.size ?? 0));
+  if (onnx.length === 0) {
+    addResult(`File ONNX ${repo}`, "warn", "nessun file ONNX nell'elenco");
+    return;
+  }
+  const list = onnx.map((s) => `${s.rfilename} (${s.size ? Math.round(s.size / 1e6) + " MB" : "?"})`);
+  addResult(`File ONNX ${repo}`, "info", list.join(", "));
+
+  const smallest = onnx[0];
+  const url = `${HF}/${repo}/resolve/main/${smallest.rfilename}`;
+  try {
+    const { response, ms } = await timedFetch(url, { headers: { Range: "bytes=0-1023" } });
+    const okStatus = response.status === 206 || response.status === 200;
+    addResult(`Download ONNX ${repo}`, okStatus ? "ok" : "ko",
+      `${smallest.rfilename}: HTTP ${response.status}, servito da ${hostOf(response.url)}, ${ms} ms`);
+    if (okStatus && !speedCandidate) speedCandidate = { url, name: `${repo}/${smallest.rfilename}`, size: smallest.size };
+    await response.body?.cancel();
+  } catch (error) {
+    addResult(`Download ONNX ${repo}`, "ko", `${smallest.rfilename}: ${explain(error)}`);
+  }
+}
+
+async function checkJsdelivr() {
+  try {
+    const { response, ms } = await timedFetch(JSDELIVR_PROBE);
+    addResult("Libreria da jsDelivr", response.ok ? "ok" : "ko",
+      `HTTP ${response.status} da ${hostOf(response.url)}, ${ms} ms`);
+  } catch (error) {
+    addResult("Libreria da jsDelivr", "ko", explain(error));
+  }
+}
+
+async function runAll() {
+  $("run").disabled = true;
+  $("checks").innerHTML = "";
+  results.length = 0;
+  speedCandidate = null;
+  checkEnvironment();
+  await checkStorage();
+  for (const repo of MODELS) await checkModel(repo);
+  await checkJsdelivr();
+  const blocked = results.some((r) => r.status === "ko");
+  addResult("Esito", blocked ? "ko" : "ok",
+    blocked ? "almeno un servizio non è raggiungibile: serve il piano B (modelli serviti in locale)"
+            : "tutti i servizi necessari sono raggiungibili");
+  $("run").disabled = false;
+  $("copy").disabled = false;
+  $("speed").disabled = !speedCandidate;
+}
+
+async function measureSpeed() {
+  if (!speedCandidate) return;
+  $("speed").disabled = true;
+  $("progressWrap").hidden = false;
+  const start = performance.now();
+  let received = 0;
+  try {
+    const response = await fetch(speedCandidate.url, { cache: "no-store" });
+    const total = Number(response.headers.get("content-length")) || speedCandidate.size || 0;
+    const reader = response.body.getReader();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value.length;
+      if (total) $("progress").value = Math.round((received / total) * 100);
+      $("progressText").textContent = `${Math.round(received / 1e6)} MB ricevuti`;
+    }
+    const seconds = (performance.now() - start) / 1000;
+    const mbps = (received / 1e6 / seconds).toFixed(1);
+    addResult("Velocità di download", "info",
+      `${speedCandidate.name}: ${Math.round(received / 1e6)} MB in ${seconds.toFixed(1)} s (${mbps} MB/s)`);
+  } catch (error) {
+    addResult("Velocità di download", "ko", `interrotto dopo ${Math.round(received / 1e6)} MB: ${explain(error)}`);
+  } finally {
+    $("speed").disabled = false;
+  }
+}
+
+$("run").addEventListener("click", runAll);
+$("speed").addEventListener("click", measureSpeed);
+$("copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText($("report").value);
+    $("copy").textContent = "Copiato";
+  } catch {
+    $("report").select();
+    $("copy").textContent = "Selezionato: copia con Ctrl+C";
+  }
+});
+</script>
+</body>
+</html>

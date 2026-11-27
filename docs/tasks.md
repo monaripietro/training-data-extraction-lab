@@ -40,6 +40,7 @@ Non verificate da Claude Code: dal container di lavoro `huggingface.co` non è r
 Rischi non citati nella spec:
 - **Rete aziendale.** Il proxy del cliente può bloccare `huggingface.co` o i suoi host di download. Va provato presto (T0), non in aula. Piano B: copia dei pesi su disco o su un server locale del formatore, caricata con `env.localModelPath` di Transformers.js (non viola RNF5, che riguarda il repository).
 - **Precisione numerica.** La memorizzazione del dataset è stata calcolata su GPU, non in fp32 su WASM. Su token quasi a pari probabilità l'argmax può cambiare anche in fp32. È già coperto da CA1 e va spiegato in aula come limite.
+- **Un solo thread su GitHub Pages.** I thread WASM richiedono l'isolamento cross-origin (header COOP e COEP), che GitHub Pages non permette di impostare. ONNX Runtime girerà quindi su un solo thread. Va misurato in T13 e, se i tempi non bastano, si valuta un service worker che aggiunge gli header (es. `coi-serviceworker`), con le relative verifiche su CA5.
 - **Versioni.** Transformers.js va fissato a una versione esatta (nessun `@latest`), che scarica anche i file WASM di ONNX Runtime da CDN: gli host attesi vanno elencati per CA5.
 
 ### 1.4 Decisioni richieste a Pietro prima di T3
@@ -57,9 +58,9 @@ Rischi non citati nella spec:
 
 Formato: obiettivo · file · fatto quando · criteri di riferimento. Ogni task è indipendente nel branch e si chiude con una pull request.
 
-### T0 — Prova di fattibilità della rete (Pietro, 30 minuti)
-Aprire dalla rete del cliente, o da una rete aziendale simile, `https://huggingface.co/Xenova/pythia-70m` e scaricare un file ONNX. Annotare in `docs/test-report.md` l'esito e gli host contattati.
-**Fatto quando:** esito scritto. Se bloccato, aprire un task per il piano B prima di T3. · CA5, RNF1
+### T0 — Prova di fattibilità della rete
+Strumento pronto: `site/netcheck.html` (Claude Code, 27/11). Resta a Pietro aprirlo **dalla rete del cliente** (o da una rete aziendale simile), copiare il risultato nella tabella di `docs/test-report.md` e passarlo al capo progetto.
+**Fatto quando:** esito scritto in `docs/test-report.md`. Se qualcosa è bloccato, chiedere al reparto IT del cliente di autorizzare gli host elencati nel report, oppure aprire un task per il piano B prima di T5. · CA5, RNF1
 
 ### T1 — Protezioni sui dati
 - `.gitignore`: `data/`, `*.prefixes.json`, `__pycache__/`, `.venv/`.
