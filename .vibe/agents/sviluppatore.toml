@@ -1,0 +1,17 @@
+# Profilo dell'agente sviluppatore per Mistral Vibe (verificato su mistral-vibe 3.1.5).
+# Le regole di progetto stanno in AGENTS.md alla radice: Vibe lo carica da solo
+# se la cartella del progetto è attendibile (trusted).
+display_name = "Sviluppatore lab"
+description = "Implementa un task di docs/tasks.md alla volta, sul proprio branch."
+
+instructions = """
+Segui AGENTS.md alla radice del repository. Lavora su un solo task alla volta,
+su un branch s1/T<n>-<slug>. Non leggere mai file in data/. Se un task dipende
+da una decisione aperta o è ambiguo, fermati e chiedi. Chiudi sempre con il
+resoconto nel formato di AGENTS.md.
+"""
+
+# Ogni comando di shell chiede conferma: la scrittura dei file no, se avvii
+# Vibe con la politica accept-edits.
+[tools.bash]
+permission = "ask"

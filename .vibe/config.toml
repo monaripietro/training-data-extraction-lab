@@ -1,0 +1,4 @@
+# Configurazione di progetto per Mistral Vibe.
+# Viene letta solo se la cartella è attendibile (trusted).
+default_agent = "sviluppatore"
+enable_telemetry = false
