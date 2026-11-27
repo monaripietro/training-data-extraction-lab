@@ -63,6 +63,8 @@ Strumento pronto: `site/netcheck.html` (Claude Code, 27/11). Resta a Pietro apri
 **Fatto quando:** esito scritto in `docs/test-report.md`. Se qualcosa è bloccato, chiedere al reparto IT del cliente di autorizzare gli host elencati nel report, oppure aprire un task per il piano B prima di T5. · CA5, RNF1
 
 ### T1 — Protezioni sui dati
+**Stato (27/11):** completato da Vibe (PR #3) e corretto dal capo progetto dopo la revisione. Le correzioni sono: blocco di ogni voce `memorized` anche senza `expected_ids`, blocco di `.jsonl`, `.csv` e `.tsv`, lettura del contenuto in stage, controllo commit per commit nelle PR e nei push, deploy del commit verificato e solo da eventi `push`, test automatici in `tests/test_check_no_pile.sh`. Il marcatore «estratto» per `docs/` scelto da Vibe è confermato.
+
 - `.gitignore`: `data/`, `*.prefixes.json`, `__pycache__/`, `.venv/`.
 - `scripts/check_no_pile.sh`: fallisce se tra i file da controllare (quelli in stage nel pre-commit, tutti i file versionati in CI) c'è (a) un file sotto `data/`, oppure (b) un file `.json` che contiene una voce con `"type": "memorized"`. Con `--all` controlla l'intero albero versionato. Messaggio di errore in italiano che dice quale file e quale regola. Il controllo dei testi in `docs/` resta alla revisione, perché non è automatizzabile in modo affidabile.
 - Fixture di prova in `tests/fixtures/`: un JSON sintetico con `"type": "memorized"` (deve far fallire lo script) e uno con soli `"type": "control"` (deve passare). La fixture che fallisce va esclusa dal controllo con un elenco esplicito di eccezioni nello script, limitato a `tests/fixtures/`.

@@ -2,3 +2,5 @@ data/
 *.prefixes.json
 __pycache__/
 .venv/
+*.csv
+*.tsv
