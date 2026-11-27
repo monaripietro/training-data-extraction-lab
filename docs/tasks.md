@@ -46,7 +46,7 @@ Rischi non citati nella spec:
 
 | ID | Decisione | Default proposto |
 | --- | --- | --- |
-| D2 | Pubblicazione di `site/` | workflow Actions (K2) |
+| D2 | Pubblicazione di `site/` | **decisa:** workflow Actions, sorgente Pages già impostata (27/11) |
 | D4 | Scenario d'aula | (a) demo del formatore per B e C (1.2.1) |
 | D5 | Testi nel CSV | esclusi di default (1.2.3) |
 | D6 | Campione anche da `deduped.70m` | sì, 10 + 10 (1.2.6) |
@@ -66,7 +66,8 @@ Aprire dalla rete del cliente, o da una rete aziendale simile, `https://huggingf
 - `scripts/check_no_pile.sh`: fallisce se nel commit (o nell'albero, in CI) c'è un file sotto `data/`, un `*.json` con chiave `expected_ids` non vuota e `type: "memorized"`, o un file di `docs/` con blocchi di testo > 200 caratteri contrassegnati come estratto. Messaggio di errore in italiano.
 - Hook `pre-commit` (configurazione in `.pre-commit-config.yaml` o `scripts/install-hooks.sh`) che lancia lo script.
 - `.github/workflows/check-data.yml`: su `push` e `pull_request`, lancia lo stesso script.
-- `.github/workflows/pages.yml`: deploy della sola cartella `site/` su GitHub Pages, eseguito solo se `check-data` passa (K2).
+- `.github/workflows/pages.yml`: deploy della sola cartella `site/` su GitHub Pages, solo da `main` e solo se `check-data` passa (K2).
+- L'hook pre-commit protegge solo i commit fatti sul computer di Pietro; quelli dell'agente remoto passano solo dalla CI. Per questo il merge su `main` deve richiedere che `check-data` sia verde (regola di protezione del branch).
 **Fatto quando:** un commit di prova con `data/x.json` viene rifiutato in locale e una PR con lo stesso file fallisce in CI (prova su branch di test, poi eliminato). · CA8, K2
 
 ### T2 — Script di preparazione dei prefissi

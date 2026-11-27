@@ -25,6 +25,14 @@ Non modificare `docs/SPEC-sprint1.md` né `docs/tasks.md`. Se trovi un errore, s
    - scostamenti dal piano e perché;
    - dubbi aperti per il capo progetto.
 
+## Ambiente di lavoro
+
+Lavori in un ambiente remoto, non sul computer di Pietro. Ne segue che:
+- non hai `data/` e non devi ricrearla;
+- puoi scrivere `scripts/prepare_prefixes.py` e i suoi test, ma non eseguirlo sul dataset reale né scaricare modelli o dataset da Hugging Face: lo esegue Pietro in locale (T2, T3);
+- le prove nel browser (T5-T13) le fa Pietro: nel resoconto indica i passi esatti per verificarle;
+- lavori sul branch del task e fai push solo di quel branch.
+
 ## Vincoli sui dati (decisione D1) — non negoziabili
 
 - Non creare, leggere né aprire file in `data/`. Contengono estratti del Pile che non devono uscire dal disco di Pietro, nemmeno verso il modello che stai usando.
