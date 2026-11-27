@@ -63,12 +63,13 @@ Aprire dalla rete del cliente, o da una rete aziendale simile, `https://huggingf
 
 ### T1 — Protezioni sui dati
 - `.gitignore`: `data/`, `*.prefixes.json`, `__pycache__/`, `.venv/`.
-- `scripts/check_no_pile.sh`: fallisce se nel commit (o nell'albero, in CI) c'è un file sotto `data/`, un `*.json` con chiave `expected_ids` non vuota e `type: "memorized"`, o un file di `docs/` con blocchi di testo > 200 caratteri contrassegnati come estratto. Messaggio di errore in italiano.
+- `scripts/check_no_pile.sh`: fallisce se tra i file da controllare (quelli in stage nel pre-commit, tutti i file versionati in CI) c'è (a) un file sotto `data/`, oppure (b) un file `.json` che contiene una voce con `"type": "memorized"`. Con `--all` controlla l'intero albero versionato. Messaggio di errore in italiano che dice quale file e quale regola. Il controllo dei testi in `docs/` resta alla revisione, perché non è automatizzabile in modo affidabile.
+- Fixture di prova in `tests/fixtures/`: un JSON sintetico con `"type": "memorized"` (deve far fallire lo script) e uno con soli `"type": "control"` (deve passare). La fixture che fallisce va esclusa dal controllo con un elenco esplicito di eccezioni nello script, limitato a `tests/fixtures/`.
 - Hook `pre-commit` (configurazione in `.pre-commit-config.yaml` o `scripts/install-hooks.sh`) che lancia lo script.
-- `.github/workflows/check-data.yml`: su `push` e `pull_request`, lancia lo stesso script.
-- `.github/workflows/pages.yml`: deploy della sola cartella `site/` su GitHub Pages, solo da `main` e solo se `check-data` passa (K2).
+- `.github/workflows/check-data.yml`: su `push` e `pull_request`, esegue `scripts/check_no_pile.sh --all` e i test dello script sulle fixture. Nome del job: `check-data` (serve per la regola di protezione di `main`).
+- `.github/workflows/pages.yml`: su `push` a `main`, un job che riesegue il controllo e un job di deploy che dipende dal primo (`needs`), con `actions/upload-pages-artifact` sulla sola cartella `site/` e `actions/deploy-pages`. Azioni fissate a una versione maggiore esplicita. Finché `site/` non esiste, il deploy pubblica un `site/index.html` provvisorio («Lab in preparazione»), creato in questo task (K2).
 - L'hook pre-commit protegge solo i commit fatti sul computer di Pietro; quelli dell'agente remoto passano solo dalla CI. Per questo il merge su `main` deve richiedere che `check-data` sia verde (regola di protezione del branch).
-**Fatto quando:** un commit di prova con `data/x.json` viene rifiutato in locale e una PR con lo stesso file fallisce in CI (prova su branch di test, poi eliminato). · CA8, K2
+**Fatto quando:** lo script fallisce sulla fixture `memorized` e su un `data/x.json` creato in una cartella temporanea, e passa sull'albero del repository; il workflow `check-data` è verde sulla PR del task; dopo il merge la pagina provvisoria è online. · CA8, K2
 
 ### T2 — Script di preparazione dei prefissi
 `scripts/prepare_prefixes.py`, `scripts/requirements.txt` (versioni fissate: `datasets`, `transformers`, `torch` CPU).
