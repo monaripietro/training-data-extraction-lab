@@ -1,0 +1,15 @@
+name: check-data
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check-data:
+    name: Protezioni sui dati (CA8)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Scarica il repository
+        uses: actions/checkout@v4
+      - name: Controlla l'intero albero con scripts/check_no_pile.sh
+        run: bash scripts/check_no_pile.sh --tree
