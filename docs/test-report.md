@@ -10,6 +10,8 @@ Nessun testo del Pile in questo file: solo id, conteggi, quote e tempi (vedi `do
 - `cdn.jsdelivr.net`: un file del pacchetto Transformers.js;
 - su richiesta, la velocità di download di un file ONNX completo (circa 70 MB).
 
+**Variante da riga di comando:** `scripts/netcheck.py`, solo libreria standard di Python. Verifica la rete ma non il browser, quindi non sostituisce `netcheck.html` sulla rete del cliente. La procedura con conda è nell'intestazione dello script.
+
 **Host da far autorizzare al reparto IT del cliente se qualcosa risulta bloccato:**
 - `huggingface.co`;
 - l'host di download dei file grandi a cui Hugging Face reindirizza: la pagina lo riporta in «servito da»;
