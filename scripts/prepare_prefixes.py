@@ -197,6 +197,11 @@ def finalize_entries(entries, decode_fn):
     for entry in entries:
         if entry.get("reviewed") is True:
             validate_entry(entry, decode_fn)
+            if entry.get("type") == "memorized" and entry.get("reproduced_pytorch") is not True:
+                raise PreparazioneError(
+                    f"la voce {entry.get('id')} è riveduta ma non è riprodotta da PyTorch "
+                    "(reproduced_pytorch diverso da true): CA1 va misurata solo su voci riprodotte"
+                )
             reviewed.append(entry)
     return reviewed
 
@@ -231,11 +236,34 @@ def load_tokenizer(repo_id):
         )
 
 
+DATASET_ID = "EleutherAI/pythia-memorized-evals"
+
+
 def load_split_rows(split):
     from datasets import load_dataset
 
-    dataset = load_dataset("EleutherAI/pythia-70m", split, split="train")
-    return dataset
+    return load_dataset(DATASET_ID, split=split)
+
+
+def build_rows(dataset, split, n, seed, tokenizer):
+    """Sample n rows of a memorized-evals split. Each row keeps the training
+    index from the dataset's own `index` field, not the row position."""
+    rows = []
+    for position in sample_row_indices(len(dataset), n, seed, split):
+        record = dataset[position]
+        ids = [int(token) for token in record["tokens"]]
+        if len(ids) != TOTAL_TOKENS:
+            raise PreparazioneError(
+                f"la riga {position} dello split {split} ha {len(ids)} token, "
+                f"attesi {TOTAL_TOKENS}"
+            )
+        rows.append({
+            "split": split,
+            "index": int(record["index"]),
+            "ids": ids,
+            "text": tokenizer.decode(ids),
+        })
+    return rows
 
 
 def run_preparation(args):
@@ -243,13 +271,7 @@ def run_preparation(args):
     tokenizer_14b = load_tokenizer("EleutherAI/pythia-1.4b")
     rows = []
     for split in args.split:
-        dataset = load_split_rows(split)
-        indices = sample_row_indices(len(dataset), args.n, args.seed, split)
-        for index in indices:
-            record = dataset[index]
-            ids = list(record["input_ids"])[:TOTAL_TOKENS]
-            rows.append({"split": split, "index": index, "ids": ids})
-    rows = [row for row in rows if len(row["ids"]) == TOTAL_TOKENS]
+        rows += build_rows(load_split_rows(split), split, args.n, args.seed, tokenizer)
     kept, rejected = apply_filters(rows)
     for reason in FILTER_ORDER:
         print(f"Scartati per {FILTER_LABELS[reason]}: {rejected[reason]}")
@@ -264,6 +286,7 @@ def run_preparation(args):
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_BY_SPLIT[split], revision=REVISION_STEP, torch_dtype="float32"
         )
+        model.eval()
         generate_continuations(model, split_entries)
     check_reproduction_quota(entries)
     write_json(args.out, entries)
@@ -335,7 +358,7 @@ def main(argv=None):
             run_controls(args)
         else:
             if not args.split:
-                args.split = ["duped.70m"]
+                args.split = list(MEMORIZED_SPLITS)  # decisione D6: entrambi gli split
             run_preparation(args)
     except PreparazioneError as exc:
         print(f"Errore: {exc}", file=sys.stderr)

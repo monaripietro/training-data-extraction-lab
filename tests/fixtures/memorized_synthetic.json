@@ -1,0 +1,3 @@
+[{"id": "m99", "type": "memorized", "split": "duped.70m", "index": 0,
+  "prefix_ids": [1, 2, 3], "expected_ids": [], "prefix_text": "testo inventato",
+  "expected_text": "", "reviewed": true, "notes": "fixture sintetica"}]

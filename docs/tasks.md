@@ -40,6 +40,7 @@ Non verificate da Claude Code: dal container di lavoro `huggingface.co` non è r
 Rischi non citati nella spec:
 - **Rete aziendale.** Il proxy del cliente può bloccare `huggingface.co` o i suoi host di download. Va provato presto (T0), non in aula. Piano B: copia dei pesi su disco o su un server locale del formatore, caricata con `env.localModelPath` di Transformers.js (non viola RNF5, che riguarda il repository).
 - **Precisione numerica.** La memorizzazione del dataset è stata calcolata su GPU, non in fp32 su WASM. Su token quasi a pari probabilità l'argmax può cambiare anche in fp32. È già coperto da CA1 e va spiegato in aula come limite.
+- **Un solo thread su GitHub Pages.** I thread WASM richiedono l'isolamento cross-origin (header COOP e COEP), che GitHub Pages non permette di impostare. ONNX Runtime girerà quindi su un solo thread. Va misurato in T13 e, se i tempi non bastano, si valuta un service worker che aggiunge gli header (es. `coi-serviceworker`), con le relative verifiche su CA5.
 - **Versioni.** Transformers.js va fissato a una versione esatta (nessun `@latest`), che scarica anche i file WASM di ONNX Runtime da CDN: gli host attesi vanno elencati per CA5.
 
 ### 1.4 Decisioni richieste a Pietro prima di T3
@@ -49,7 +50,7 @@ Rischi non citati nella spec:
 | D2 | Pubblicazione di `site/` | **decisa:** workflow Actions, sorgente Pages già impostata (27/11) |
 | D4 | Scenario d'aula | (a) demo del formatore per B e C (1.2.1) |
 | D5 | Testi nel CSV | esclusi di default (1.2.3) |
-| D6 | Campione anche da `deduped.70m` | sì, 10 + 10 (1.2.6) |
+| D6 | Campione anche da `deduped.70m` | **decisa:** sì, 10 + 10 (1.2.6) |
 
 ---
 
@@ -57,20 +58,25 @@ Rischi non citati nella spec:
 
 Formato: obiettivo · file · fatto quando · criteri di riferimento. Ogni task è indipendente nel branch e si chiude con una pull request.
 
-### T0 — Prova di fattibilità della rete (Pietro, 30 minuti)
-Aprire dalla rete del cliente, o da una rete aziendale simile, `https://huggingface.co/Xenova/pythia-70m` e scaricare un file ONNX. Annotare in `docs/test-report.md` l'esito e gli host contattati.
-**Fatto quando:** esito scritto. Se bloccato, aprire un task per il piano B prima di T3. · CA5, RNF1
+### T0 — Prova di fattibilità della rete
+Strumento pronto: `site/netcheck.html` (Claude Code, 27/11). Resta a Pietro aprirlo **dalla rete del cliente** (o da una rete aziendale simile), copiare il risultato nella tabella di `docs/test-report.md` e passarlo al capo progetto.
+**Fatto quando:** esito scritto in `docs/test-report.md`. Se qualcosa è bloccato, chiedere al reparto IT del cliente di autorizzare gli host elencati nel report, oppure aprire un task per il piano B prima di T5. · CA5, RNF1
 
 ### T1 — Protezioni sui dati
+**Stato (27/11):** completato da Vibe (PR #3) e corretto dal capo progetto dopo la revisione. Le correzioni sono: blocco di ogni voce `memorized` anche senza `expected_ids`, blocco di `.jsonl`, `.csv` e `.tsv`, lettura del contenuto in stage, controllo commit per commit nelle PR e nei push, deploy del commit verificato e solo da eventi `push`, test automatici in `tests/test_check_no_pile.sh`. Il marcatore «estratto» per `docs/` scelto da Vibe è confermato.
+
 - `.gitignore`: `data/`, `*.prefixes.json`, `__pycache__/`, `.venv/`.
-- `scripts/check_no_pile.sh`: fallisce se nel commit (o nell'albero, in CI) c'è un file sotto `data/`, un `*.json` con chiave `expected_ids` non vuota e `type: "memorized"`, o un file di `docs/` con blocchi di testo > 200 caratteri contrassegnati come estratto. Messaggio di errore in italiano.
+- `scripts/check_no_pile.sh`: fallisce se tra i file da controllare (quelli in stage nel pre-commit, tutti i file versionati in CI) c'è (a) un file sotto `data/`, oppure (b) un file `.json` che contiene una voce con `"type": "memorized"`. Con `--all` controlla l'intero albero versionato. Messaggio di errore in italiano che dice quale file e quale regola. Il controllo dei testi in `docs/` resta alla revisione, perché non è automatizzabile in modo affidabile.
+- Fixture di prova in `tests/fixtures/`: un JSON sintetico con `"type": "memorized"` (deve far fallire lo script) e uno con soli `"type": "control"` (deve passare). La fixture che fallisce va esclusa dal controllo con un elenco esplicito di eccezioni nello script, limitato a `tests/fixtures/`.
 - Hook `pre-commit` (configurazione in `.pre-commit-config.yaml` o `scripts/install-hooks.sh`) che lancia lo script.
-- `.github/workflows/check-data.yml`: su `push` e `pull_request`, lancia lo stesso script.
-- `.github/workflows/pages.yml`: deploy della sola cartella `site/` su GitHub Pages, solo da `main` e solo se `check-data` passa (K2).
+- `.github/workflows/check-data.yml`: su `push` e `pull_request`, esegue `scripts/check_no_pile.sh --all` e i test dello script sulle fixture. Nome del job: `check-data` (serve per la regola di protezione di `main`).
+- `.github/workflows/pages.yml`: su `push` a `main`, un job che riesegue il controllo e un job di deploy che dipende dal primo (`needs`), con `actions/upload-pages-artifact` sulla sola cartella `site/` e `actions/deploy-pages`. Azioni fissate a una versione maggiore esplicita. Finché `site/` non esiste, il deploy pubblica un `site/index.html` provvisorio («Lab in preparazione»), creato in questo task (K2).
 - L'hook pre-commit protegge solo i commit fatti sul computer di Pietro; quelli dell'agente remoto passano solo dalla CI. Per questo il merge su `main` deve richiedere che `check-data` sia verde (regola di protezione del branch).
-**Fatto quando:** un commit di prova con `data/x.json` viene rifiutato in locale e una PR con lo stesso file fallisce in CI (prova su branch di test, poi eliminato). · CA8, K2
+**Fatto quando:** lo script fallisce sulla fixture `memorized` e su un `data/x.json` creato in una cartella temporanea, e passa sull'albero del repository; il workflow `check-data` è verde sulla PR del task; dopo il merge la pagina provvisoria è online. · CA8, K2
 
 ### T2 — Script di preparazione dei prefissi
+**Stato (28/11):** implementato da Vibe (PR #4), corretto dopo la revisione. Le correzioni sono: dataset `EleutherAI/pythia-memorized-evals` al posto del repository del modello, campi `tokens` e `index` del dataset (l'`index` è quello di addestramento, non la posizione della riga), testo decodificato prima dei filtri, entrambi gli split di default (D6 = sì), `--finalize` che rifiuta voci memorizzate rivedute ma non riprodotte da PyTorch, test Python in CI. Da eseguire in locale da Pietro (T3).
+
 `scripts/prepare_prefixes.py`, `scripts/requirements.txt` (versioni fissate: `datasets`, `transformers`, `torch` CPU).
 1. Argomenti: `--split` (ripetibile: `duped.70m`, `deduped.70m`), `--n` (default 200 per split), `--seed` (default 42), `--out data/candidates.json`, `--finalize`.
 2. Carica lo split, campiona con seme fisso.

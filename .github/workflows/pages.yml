@@ -18,16 +18,16 @@ concurrency:
 jobs:
   deploy:
     name: Deploy di site/ su GitHub Pages
-    if: github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Scarica main
+      - name: Scarica il commit controllato da check-data
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.workflow_run.head_sha }}
       - name: Configura GitHub Pages
         uses: actions/configure-pages@v5
       - name: Carica solo la cartella site/
