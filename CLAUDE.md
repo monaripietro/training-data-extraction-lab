@@ -21,5 +21,5 @@ Questa sessione gira sul computer di Pietro e serve a **eseguire** prove e scrip
 | Task | Cosa | Riferimento |
 | --- | --- | --- |
 | T0 | Verifica di rete da riga di comando | intestazione di `scripts/netcheck.py` |
-| T2/T3 | Preparazione dei candidati (dopo la chiusura delle issue #6, #7, #8) | `scripts/prepare_prefixes.py --help` |
+| T2/T3 | Preparazione dei candidati (dopo la chiusura dell'issue #8) | `scripts/prepare_prefixes.py --help` |
 | T4 | Generazione di `site/controls.json` | `prepare_prefixes.py --controls` |

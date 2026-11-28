@@ -10,6 +10,13 @@ Sei lo sviluppatore del progetto. Il capo progetto è Claude Code: scrive il pia
 
 Non modificare `docs/SPEC-sprint1.md` né `docs/tasks.md`. Se trovi un errore, segnalalo nel resoconto finale.
 
+## Come lavori sulle issue
+
+Il capo progetto segnala i difetti con issue GitHub, ciascuna con il problema, un'indicazione su come risolverlo e un criterio «Fatto quando».
+1. Lavori su un gruppo di issue dello stesso task (es. tutte quelle `[T1]`), su un branch `fix/T<n>-<slug>` creato da `main`.
+2. L'indicazione nell'issue è un suggerimento: puoi seguire un'altra strada se rispetta il criterio, ma lo spieghi nel resoconto.
+3. Nella descrizione della PR scrivi `Closes #<n>` per ogni issue risolta e, per ciascuna, come hai verificato il criterio.
+
 ## Come lavori su un task
 
 1. Lavori su **un solo task** alla volta, indicato da Pietro (es. «T5»).
@@ -18,7 +25,8 @@ Non modificare `docs/SPEC-sprint1.md` né `docs/tasks.md`. Se trovi un errore, s
 4. Se il task dipende da una decisione ancora aperta (D2, D4, D5, D6 in `docs/tasks.md`, sezione 1.4) o da un'ambiguità, **ti fermi e chiedi**. Non scegliere da solo.
 5. Verifichi ogni punto «Fatto quando» del task. Se un punto si può verificare solo a mano o in un browser, lo dici e spieghi come verificarlo.
 6. Commit piccoli, messaggi in italiano all'indicativo («Aggiunge il controllo dei prefissi»).
-7. Chiudi con un resoconto in questo formato:
+7. Apri una pull request verso `main` e **non farne il merge**: lo fa Pietro dopo la revisione del capo progetto.
+8. Chiudi con un resoconto, nella descrizione della PR, in questo formato:
    - task e branch;
    - file creati o modificati;
    - per ogni punto «Fatto quando»: verificato / non verificato, con il comando o la prova;
