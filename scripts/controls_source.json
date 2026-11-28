@@ -1,0 +1,38 @@
+[
+  {
+    "id": "c01",
+    "style": "prosa",
+    "notes": "paragrafo descrittivo di un porto inventato",
+    "text": "The harbour wall at Pellworth curves in a long arc toward the northern light, and in the early morning the water inside it lies so flat that the fishing boats seem to be standing on glass. Crates of ice are stacked near the ramp, and two men in yellow coats sort the night's catch by size and shade. Beyond the wall the sea turns a greyer blue, and the horizon is broken only by a single low island that the pilots call the Table. By nine the market square fills with tarpaulins, chalk boards and the smell of tar, and the first buyers arrive pushing narrow trolleys, counting the minutes before the bell."
+  },
+  {
+    "id": "c02",
+    "style": "prosa",
+    "notes": "paragrafo narrativo con trama inventata",
+    "text": "Marta counted the steps from the side door to the corner of the yard, stopped at forty-one, and knelt to look under the last crate. The key was not there. It had not been under the flowerpot either, and the shed lock hung open in a way that made her stomach tighten. She stood very still, listening. Somewhere behind the fence a radio muttered, and a bicycle went past on the gravel road with a soft hiss. She decided to say nothing at supper. In the morning she would take the long route to school, past the churchyard wall, and think again about who else could have known where the spare key was kept."
+  },
+  {
+    "id": "c03",
+    "style": "codice",
+    "notes": "funzione Python inventata per il filtraggio di letture",
+    "text": "def summarize_readings(samples, threshold):\n    kept = []\n    for sample in samples:\n        if sample is None or sample.value is None:\n            continue\n        if abs(sample.value) > threshold:\n            kept.append((sample.label, round(sample.value, 3)))\n    kept.sort(key=lambda pair: pair[1])\n    total = sum(value for _, value in kept)\n    average = total / len(kept) if kept else 0.0\n    return {\"count\": len(kept), \"average\": average, \"kept\": kept}"
+  },
+  {
+    "id": "c04",
+    "style": "codice",
+    "notes": "frammento di configurazione TOML inventato",
+    "text": "[archive]\nroot = \"/var/local/archive\"\nretention_days = 90\n\n[archive.naming]\npattern = \"{source}/{year}/{month}/{slug}\"\nlowercase = true\n\n[upload]\nworkers = 4\nchunk_mb = 32\nretries = 3\nbackoff_seconds = [5, 30, 120]\n\n[upload.limits]\nmax_files_per_day = 500\n\n[logging]\nlevel = \"warn\"\nrotate_mb = 64\nkeep_files = 5\nslow_query_ms = 250"
+  },
+  {
+    "id": "c05",
+    "style": "elenco",
+    "notes": "changelog inventato di uno strumento fittizio",
+    "text": "## 0.7.2 — patch release\n- Fixed the filter panel losing its selection when the list was refreshed twice in a row.\n- Fixed an incorrect warning shown when a merged cell contained only whitespace.\n- Lowered the default memory ceiling for background scans on small devices.\n- Updated the bundled example workbook shipped with new installations.\n\n## 0.7.1\n- Added an option to sort columns by the last modified time.\n- Fixed the keyboard shortcut for closing the inspector on non-English layouts.\n- Fixed a crash when a template row referenced itself through two linked sheets.\n- Renamed the internal queue setting to avoid confusion with the batch size."
+  },
+  {
+    "id": "c06",
+    "style": "elenco",
+    "notes": "elenco puntato semi-strutturato di controllo di un banco fittizio",
+    "text": "Before the first run, check the following items:\n- the encoder board is seated flat and both clips are closed;\n- each ribbon cable is oriented with the red stripe toward the power side;\n- the bench supply is set to five volts and current limited to two amps;\n- the jumpers on the timing card match the diagram printed inside the lid;\n- the fan grille is free of dust and spins by hand without noise;\n- the log switch is in the middle position, not the maintenance one.\nIf any item fails, stop and note it on the checklist sheet before powering on."
+  }
+]
