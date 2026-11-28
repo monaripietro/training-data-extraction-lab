@@ -241,12 +241,56 @@ def load_tokenizer(repo_id):
 
 
 DATASET_ID = "EleutherAI/pythia-memorized-evals"
+DATA_EXTENSIONS = (".parquet", ".arrow", ".jsonl")
+BUILDER_BY_EXTENSION = {
+    ".parquet": "parquet",
+    ".arrow": "arrow",
+    ".jsonl": "json",
+}
+EXPECTED_ROW_COUNTS = {
+    "duped.70m": 463_953,
+    "deduped.70m": 411_448,
+}
+
+
+def split_name_in(path, split):
+    pattern = rf"(?<![A-Za-z0-9]){re.escape(split)}(?![A-Za-z0-9-])"
+    return re.search(pattern, path) is not None
+
+
+def select_split_files(paths, split):
+    data_paths = [path for path in paths if path.lower().endswith(DATA_EXTENSIONS)]
+    selected = [path for path in data_paths if split_name_in(path, split)]
+    if not selected:
+        near = [path for path in data_paths if split in path]
+        detail = ", ".join(near) if near else "nessun file di dati trovato nel deposito"
+        raise PreparazioneError(
+            f"nessun file di dati non ambiguo per lo split {split}: candidati "
+            f"trovati: {detail}"
+        )
+    return selected
 
 
 def load_split_rows(split):
     from datasets import load_dataset
+    from huggingface_hub import hf_hub_download, list_repo_files
 
-    return load_dataset(DATASET_ID, split=split)
+    print(f"Scelgo i file di dati dello split {split}…")
+    repo_paths = list_repo_files(DATASET_ID, repo_type="dataset")
+    selected = select_split_files(repo_paths, split)
+    print(f"Scarico lo split {split} ({len(selected)} file)…")
+    local_paths = [
+        hf_hub_download(DATASET_ID, path, repo_type="dataset") for path in selected
+    ]
+    builder = BUILDER_BY_EXTENSION[Path(selected[0]).suffix.lower()]
+    dataset = load_dataset(builder, data_files={split: local_paths}, split=split)
+    expected = EXPECTED_ROW_COUNTS.get(split)
+    if expected is not None and len(dataset) != expected:
+        print(
+            f"Attenzione: lo split {split} ha {len(dataset)} righe, lo spec ne "
+            f"attende {expected}: controlla che i file scelti siano quelli giusti."
+        )
+    return dataset
 
 
 def build_rows(dataset, split, n, seed, tokenizer):
@@ -287,6 +331,7 @@ def run_preparation(args):
             continue
         from transformers import AutoModelForCausalLM
 
+        print(f"Genero le continuazioni con {MODEL_BY_SPLIT[split]}…")
         model = AutoModelForCausalLM.from_pretrained(
             MODEL_BY_SPLIT[split], revision=REVISION_STEP, torch_dtype="float32"
         )
