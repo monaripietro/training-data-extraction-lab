@@ -45,3 +45,10 @@ export function visibleWhitespace(text) {
     .replace(/\r\n|\r|\n/g, '↵')
     .replace(/ /g, '·');
 }
+
+export function visibleTokenText(text, placeholder = '◌') {
+  if (text === '') {
+    return placeholder;
+  }
+  return visibleWhitespace(text);
+}

@@ -54,6 +54,34 @@
         </select>
       </div>
     </section>
+    <section aria-labelledby="mode-b-title">
+      <h2 id="mode-b-title">Modalità B: prefissi noti</h2>
+      <p class="hint">
+        Scegli un prefisso dall'elenco e genera 32 token. La continuazione
+        attesa resta nascosta finché non generi.
+      </p>
+      <label for="b-model">Modello</label>
+      <select id="b-model">
+        <option value="">Nessun modello caricato</option>
+      </select>
+      <p>
+        <button id="b-generate" type="button" disabled>Genera</button>
+      </p>
+      <p id="b-status" role="status"></p>
+      <div id="b-result" hidden>
+        <p id="b-summary" class="b-summary"></p>
+        <div class="b-columns">
+          <div>
+            <h3>Atteso</h3>
+            <ol id="b-expected" class="token-list"></ol>
+          </div>
+          <div>
+            <h3>Generato</h3>
+            <ol id="b-generated" class="token-list"></ol>
+          </div>
+        </div>
+      </div>
+    </section>
     <section aria-labelledby="debug-title">
       <h2 id="debug-title">Prova di generazione</h2>
       <p>
