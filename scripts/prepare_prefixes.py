@@ -26,7 +26,7 @@ FILTER_ORDER = ("email", "url", "sequenza_di_cifre", "telefono", "pochi_token_di
 FILTER_LABELS = {
     "email": "indirizzi email",
     "url": "URL",
-    "sequenza_di_cifre": "sequenze di 8 o piu cifre",
+    "sequenza_di_cifre": "sequenze di 8 o più cifre",
     "telefono": "numeri di telefono",
     "pochi_token_distinti": "meno di 16 token distinti su 64",
 }
@@ -125,7 +125,7 @@ def build_control_entries(controls_source, tokenizer):
         ids = tokenizer.encode(text)
         if len(ids) < TOTAL_TOKENS:
             raise PreparazioneError(
-                f"il controllo {position} e lungo {len(ids)} token, almeno "
+                f"il controllo {position} è lungo {len(ids)} token, almeno "
                 f"{TOTAL_TOKENS} sono richiesti"
             )
         entry_id = control.get("id") or f"c{position:02d}"
@@ -165,7 +165,7 @@ def check_reproduction_quota(entries):
         print(
             f"Attenzione: solo {reproduced} candidati su {total} "
             f"({reproduced / total:.0%}) sono riprodotti da PyTorch: la soglia "
-            f"e del {REPRODUCTION_THRESHOLD:.0%}."
+            f"è del {REPRODUCTION_THRESHOLD:.0%}."
         )
     return reproduced, total
 
@@ -225,7 +225,7 @@ def read_json(path):
     except FileNotFoundError:
         raise PreparazioneError(f"il file {path} non esiste")
     except json.JSONDecodeError as exc:
-        raise PreparazioneError(f"il file {path} non e un JSON valido: {exc}")
+        raise PreparazioneError(f"il file {path} non è un JSON valido: {exc}")
 
 
 def load_tokenizer(repo_id):
@@ -306,7 +306,7 @@ def run_finalize(args):
     if not reviewed:
         raise PreparazioneError(
             f"nessuna voce riveduta in {args.candidates}: quasi certamente la "
-            "revisione non e stata salvata oppure e stato passato il file "
+            "revisione non è stata salvata oppure è stato passato il file "
             f"sbagliato; non scrivo {args.prefixes_out}"
         )
     write_json(args.prefixes_out, reviewed)
@@ -358,8 +358,8 @@ def evaluate_controls(entries, models, generate_fn=greedy_generate):
             matching[key] = common_prefix_length(generated, entry["expected_ids"])
             if reproduced[key]:
                 print(
-                    f"Attenzione: il controllo {entry['id']} e completato in modo "
-                    f"esatto dal modello {key}: non e un buon controllo, va "
+                    f"Attenzione: il controllo {entry['id']} è completato in modo "
+                    f"esatto dal modello {key}: non è un buon controllo, va "
                     "sostituito prima di T7 (CA2)"
                 )
         entry["reproduced_pytorch"] = reproduced

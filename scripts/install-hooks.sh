@@ -26,7 +26,7 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   case "$remote_sha" in
     *[!0]*)
       if ! shas="$(git rev-list --no-merges "$remote_sha..$local_sha")"; then
-        echo "Errore: l'intervallo $remote_sha..$local_sha non e leggibile (cronologia riscritta o remoto non aggiornato). Push bloccato per sicurezza." >&2
+        echo "Errore: l'intervallo $remote_sha..$local_sha non è leggibile (cronologia riscritta o remoto non aggiornato). Push bloccato per sicurezza." >&2
         status=1
         continue
       fi
