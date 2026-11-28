@@ -356,3 +356,50 @@ class FinalizeReproductionTests(unittest.TestCase):
     def test_default_splits_are_both(self):
         args = pp.parse_args([])
         self.assertIsNone(args.split)
+
+
+class SplitFileSelectionTests(unittest.TestCase):
+    def repo_paths(self):
+        return [
+            "config.json",
+            "README.md",
+            "duped.70m/train-00000-of-00001.parquet",
+            "duped.70m/train-00001-of-00001.parquet",
+            "deduped.70m/train-00000-of-00001.parquet",
+            "duped.160m/train-00000-of-00001.parquet",
+            "duped.70m-extra/train-00000-of-00001.parquet",
+            "duped.70m/README.md",
+            "duped.70m/metadata.json",
+        ]
+
+    def test_duped_selects_only_exact_split_files(self):
+        selected = pp.select_split_files(self.repo_paths(), "duped.70m")
+        self.assertEqual(
+            selected,
+            [
+                "duped.70m/train-00000-of-00001.parquet",
+                "duped.70m/train-00001-of-00001.parquet",
+            ],
+        )
+
+    def test_deduped_is_not_confused_with_duped(self):
+        selected = pp.select_split_files(self.repo_paths(), "deduped.70m")
+        self.assertEqual(selected, ["deduped.70m/train-00000-of-00001.parquet"])
+
+    def test_no_match_raises_with_candidates(self):
+        paths = self.repo_paths() + ["duped.6.9b/train-00000-of-00001.parquet"]
+        with self.assertRaises(pp.PreparazioneError) as ctx:
+            pp.select_split_files(paths, "duped.6.9b-extra-wrong")
+        self.assertIn("candidati", str(ctx.exception))
+
+    def test_extra_suffix_is_not_a_match_for_the_base_split(self):
+        with self.assertRaises(pp.PreparazioneError):
+            pp.select_split_files(
+                ["duped.70m-extra/train-00000-of-00001.parquet"], "duped.70m"
+            )
+
+    def test_non_data_files_are_ignored(self):
+        with self.assertRaises(pp.PreparazioneError):
+            pp.select_split_files(
+                ["duped.70m/README.md", "duped.70m/metadata.json"], "duped.70m"
+            )
