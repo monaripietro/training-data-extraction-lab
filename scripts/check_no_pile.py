@@ -5,6 +5,8 @@ Modes:
   --tree               every tracked file at HEAD
   --range BASE..HEAD   every file added or changed by each commit in the range,
                        so a file added and then removed inside a PR is caught too
+  --commits SHA...      the same check on an explicit list of commits, used by the
+                       pre-push hook (new branches and ordinary updates)
 
 Rules:
   a. no path under data/
@@ -151,6 +153,21 @@ def commit_range(spec: str) -> list[str]:
     return errors
 
 
+def commit_list(shas: list[str]) -> list[str]:
+    errors: list[str] = []
+    for commit in shas:
+        commit = commit.strip()
+        if not commit:
+            continue
+        changed = git(
+            "diff-tree", "--no-commit-id", "--name-only", "-r", "--root",
+            "--diff-filter=ACMR", commit,
+        ).splitlines()
+        for path in changed:
+            errors += check_file(path, git_blob(f"{commit}:{path}"), f" (commit {commit[:9]})")
+    return errors
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         errors = staged()
@@ -163,17 +180,30 @@ def main(argv: list[str]) -> int:
             print(f"Intervallo di commit non leggibile: {argv[1]} (cronologia riscritta o incompleta). "
                   "Controllo bloccato per sicurezza.", file=sys.stderr)
             return 1
+    elif argv[0] == "--commits":
+        if len(argv) < 2:
+            print("Uso: check_no_pile.py --commits SHA [SHA...]", file=sys.stderr)
+            return 2
+        try:
+            errors = commit_list(argv[1:])
+        except subprocess.CalledProcessError:
+            print(f"Commit non leggibili: {' '.join(argv[1:])} (cronologia riscritta o incompleta). "
+                  "Controllo bloccato per sicurezza.", file=sys.stderr)
+            return 1
     elif argv[0] in ("-h", "--help"):
         print(__doc__)
         return 0
     else:
-        print(f"Argomenti non validi: {' '.join(argv)}. Uso: check_no_pile.sh [--tree | --range BASE..HEAD]",
+        print(f"Argomenti non validi: {' '.join(argv)}. "
+              "Uso: check_no_pile.sh [--tree | --range BASE..HEAD | --commits SHA...]",
               file=sys.stderr)
         return 2
     if errors:
         for error in errors:
             print(f"VIOLAZIONE CA8: {error}", file=sys.stderr)
         print("Operazione bloccata: rimuovi i file indicati. Vedi AGENTS.md, «Vincoli sui dati».",
+              file=sys.stderr)
+        print("Prima di ripetere il push, rimuovi l'estratto dai commit con git reset o git rebase locale.",
               file=sys.stderr)
         return 1
     print("Controllo protezioni sui dati (CA8): OK")
