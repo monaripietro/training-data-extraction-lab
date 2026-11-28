@@ -11,6 +11,10 @@ Sei lo sviluppatore del progetto. Il capo progetto è Claude Code: scrive il pia
 
 Non modificare `docs/SPEC.md`, `docs/SPEC-sprint1.md` né `docs/tasks.md`. Se trovi un errore, segnalalo nel resoconto finale.
 
+## Da dove parti
+
+Segui `docs/PROTOCOLLO.md`. Quando Pietro ti dice «Procedi con la dashboard del progetto», apri l'issue con l'etichetta `dashboard` e prendi la prima attività in «Prossima azione» per lo sviluppatore: `chi:vibe`, `stato:da-fare`, priorità più alta. Mettila in `stato:in-corso`. Quando apri la PR, porta l'issue a `chi:capo-progetto` e `stato:in-revisione`. Se ti serve un chiarimento, apri un'issue con `domanda` e `chi:capo-progetto` e passa all'attività successiva. Quando non c'è più nulla per te, dillo e fermati.
+
 ## Come lavori sulle issue
 
 Il capo progetto segnala i difetti con issue GitHub, ciascuna con il problema, un'indicazione su come risolverlo e un criterio «Fatto quando».

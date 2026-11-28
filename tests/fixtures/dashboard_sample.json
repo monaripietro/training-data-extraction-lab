@@ -1,0 +1,10 @@
+{"issues": [
+ {"number": 61, "title": "Dashboard", "labels": [{"name": "dashboard"}], "body": ""},
+ {"number": 60, "title": "Esegui tutti", "labels": [{"name": "chi:vibe"}, {"name": "stato:da-fare"}, {"name": "priorità:1"}]},
+ {"number": 54, "title": "Recheck", "labels": [{"name": "chi:vibe"}, {"name": "stato:da-fare"}, {"name": "priorità:2"}]},
+ {"number": 70, "title": "Domanda", "labels": [{"name": "chi:capo-progetto"}, {"name": "domanda"}, {"name": "stato:da-fare"}]},
+ {"number": 71, "title": "Prova", "labels": [{"name": "chi:pietro"}, {"name": "stato:da-verificare"}]},
+ {"number": 72, "title": "Senza etichette", "labels": []},
+ {"number": 73, "title": "Una PR", "labels": [], "pull_request": {}}
+],
+"pulls": [{"number": 73, "title": "Una PR", "body": "Closes #60", "draft": false}]}
