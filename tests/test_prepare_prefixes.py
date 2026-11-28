@@ -1,9 +1,10 @@
 import io
+import types
 import json
 import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -11,6 +12,59 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 import prepare_prefixes as pp
+
+
+class FakeTorchTensor:
+    def __init__(self, data):
+        self._data = data
+
+    def __len__(self):
+        return len(self._data)
+
+    def __getitem__(self, item):
+        result = self._data[item]
+        return FakeTorchTensor(result) if isinstance(result, list) else result
+
+    def tolist(self):
+        if self._data and isinstance(self._data[0], list):
+            return [list(row) for row in self._data]
+        return list(self._data)
+
+
+fake_torch = types.SimpleNamespace(
+    int64=None,
+    tensor=lambda data, dtype=None: FakeTorchTensor(data),
+    ones_like=lambda other: FakeTorchTensor([[1] * len(other._data[0])]),
+)
+
+
+class FakeAutoModelForCausalLM:
+    calls = []
+    generated = [999] * 32
+
+    def __init__(self):
+        self.generation_config = types.SimpleNamespace(eos_token_id=None)
+
+    def eval(self):
+        return self
+
+    def generate(self, input_ids=None, attention_mask=None, **kwargs):
+        prefix = input_ids._data[0]
+        return FakeTorchTensor([list(prefix) + list(FakeAutoModelForCausalLM.generated)])
+
+    @classmethod
+    def reset(cls):
+        cls.calls = []
+
+    @classmethod
+    def from_pretrained(cls, repo_id, revision=None, torch_dtype=None):
+        cls.calls.append((repo_id, revision, torch_dtype))
+        return cls()
+
+
+fake_transformers = types.ModuleType("transformers")
+fake_transformers.AutoModelForCausalLM = FakeAutoModelForCausalLM
+
 
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
 
@@ -425,3 +479,140 @@ class SplitFileSelectionTests(unittest.TestCase):
             pp.select_split_files(
                 ["duped.70m/README.md", "duped.70m/metadata.json"], "duped.70m"
             )
+
+
+class RecheckTests(unittest.TestCase):
+    def setUp(self):
+        self.saved_modules = {name: sys.modules.get(name) for name in ("torch", "transformers")}
+        sys.modules["torch"] = fake_torch
+        sys.modules["transformers"] = fake_transformers
+        fake_transformers.AutoModelForCausalLM.reset()
+        patcher = mock.patch.object(pp, "load_split_rows")
+        self.load_split_rows = patcher.start()
+        self.addCleanup(patcher.stop)
+        self.addCleanup(self.tearDownModules)
+
+    def tearDownModules(self):
+        for name, module in self.saved_modules.items():
+            if module is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = module
+
+    def candidates(self, tmp):
+        entries = [
+            {
+                "id": "m01",
+                "type": "memorized",
+                "split": "duped.70m",
+                "index": 1,
+                "prefix_ids": list(range(100, 132)),
+                "expected_ids": [999] * 32,
+                "prefix_text": "x",
+                "expected_text": "y",
+                "reviewed": False,
+                "notes": "",
+            },
+            {
+                "id": "m02",
+                "type": "memorized",
+                "split": "duped.70m",
+                "index": 2,
+                "prefix_ids": list(range(100, 132)),
+                "expected_ids": list(range(200, 232)),
+                "prefix_text": "x",
+                "expected_text": "y",
+                "reviewed": False,
+                "notes": "",
+            },
+            {
+                "id": "m03",
+                "type": "memorized",
+                "split": "deduped.70m",
+                "index": 3,
+                "prefix_ids": list(range(100, 132)),
+                "expected_ids": [999] * 32,
+                "prefix_text": "x",
+                "expected_text": "y",
+                "reviewed": False,
+                "notes": "",
+            },
+        ]
+        path = Path(tmp) / "candidates.json"
+        path.write_text(json.dumps(entries), encoding="utf-8")
+        return path, entries
+
+    def test_recheck_prints_quotas_without_downloading(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path, _ = self.candidates(tmp)
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                code = pp.main(["--recheck", str(path)])
+            self.assertEqual(code, 0)
+            output = buffer.getvalue()
+            self.assertIn("duped.70m: 1/2 riprodotti (50%)", output)
+            self.assertIn("deduped.70m: 1/1 riprodotti (100%)", output)
+            self.assertIn("totale: 2/3 riprodotti (67%)", output)
+            self.load_split_rows.assert_not_called()
+
+    def test_recheck_warns_below_threshold_with_report_reference(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path, _ = self.candidates(tmp)
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                pp.main(["--recheck", str(path)])
+            self.assertIn(
+                "quota inferiore al 95%: vedi docs/test-report.md, sezione T3", buffer.getvalue()
+            )
+
+    def test_recheck_passes_diagnosis_options_to_from_pretrained(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path, _ = self.candidates(tmp)
+            buffer = io.StringIO()
+            with redirect_stdout(buffer):
+                code = pp.main([
+                    "--recheck", str(path),
+                    "--torch-dtype", "float16",
+                    "--model-revision", "main",
+                    "--model-suffix=-v0",
+                ])
+            self.assertEqual(code, 0)
+            self.assertEqual(
+                fake_transformers.AutoModelForCausalLM.calls,
+                [
+                    ("EleutherAI/pythia-70m-v0", "main", "float16"),
+                    ("EleutherAI/pythia-70m-deduped-v0", "main", "float16"),
+                ],
+            )
+
+    def test_recheck_does_not_rewrite_without_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path, _ = self.candidates(tmp)
+            before = path.read_text(encoding="utf-8")
+            with redirect_stdout(io.StringIO()):
+                pp.main(["--recheck", str(path)])
+            self.assertEqual(path.read_text(encoding="utf-8"), before)
+
+    def test_recheck_with_write_updates_reproduced_pytorch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path, _ = self.candidates(tmp)
+            with redirect_stdout(io.StringIO()):
+                code = pp.main(["--recheck", str(path), "--write"])
+            self.assertEqual(code, 0)
+            updated = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                [entry["reproduced_pytorch"] for entry in updated],
+                [True, False, True],
+            )
+
+    def test_recheck_rejects_invalid_entries(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path, _ = self.candidates(tmp)
+            entries = json.loads(path.read_text(encoding="utf-8"))
+            entries[0]["prefix_ids"] = entries[0]["prefix_ids"][:31]
+            path.write_text(json.dumps(entries), encoding="utf-8")
+            buffer = io.StringIO()
+            with redirect_stderr(buffer):
+                code = pp.main(["--recheck", str(path)])
+            self.assertEqual(code, 1)
+            self.assertIn("m01", buffer.getvalue())
