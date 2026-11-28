@@ -59,24 +59,34 @@ export async function loadModel(repoId, { dtype = DEFAULT_VARIANT, onProgress } 
   return { repoId, dtype, tokenizer, model };
 }
 
-export async function generateFromIds(loaded, prefixIds) {
-  const { model } = loaded;
+export function buildGenerateArgs(prefixIds, TensorClass) {
   const inputIds = new BigInt64Array(prefixIds.map((id) => BigInt(id)));
   const attentionMask = new BigInt64Array(prefixIds.length).fill(1n);
-  const output = await model.generate({
-    inputs: inputIds,
-    attention_mask: attentionMask,
+  return {
+    inputs: new TensorClass('int64', inputIds, [1, prefixIds.length]),
+    attention_mask: new TensorClass('int64', attentionMask, [1, prefixIds.length]),
     ...generationParams(),
-  });
+  };
+}
+
+export async function generateFromIds(loaded, prefixIds, transformersModule = null) {
+  const { model } = loaded;
+  const lib = transformersModule ?? (await getTransformers());
+  const args = buildGenerateArgs(prefixIds, lib.Tensor);
+  const output = await model.generate(args);
   const sequence = typeof output.tolist === 'function' ? output.tolist() : output;
   const row = Array.isArray(sequence) && Array.isArray(sequence[0]) ? sequence[0] : sequence;
-  const generated = row.slice(-NEW_TOKENS).map((id) => Number(id));
-  if (generated.length !== NEW_TOKENS) {
+  if (row.length !== prefixIds.length + NEW_TOKENS) {
     throw new Error(
-      `la generazione ha restituito ${generated.length} token, attesi ${NEW_TOKENS}`
+      `la generazione ha restituito ${row.length} token, attesi ` +
+        `${prefixIds.length + NEW_TOKENS} (prefisso + ${NEW_TOKENS} nuovi)`
     );
   }
-  return generated;
+  const echo = row.slice(0, prefixIds.length).map((id) => Number(id));
+  if (echo.some((id, index) => id !== Number(prefixIds[index]))) {
+    throw new Error("l'uscita della generazione non inizia con i token del prefisso");
+  }
+  return row.slice(-NEW_TOKENS).map((id) => Number(id));
 }
 
 export function dispose(loaded) {

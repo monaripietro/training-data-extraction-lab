@@ -34,6 +34,11 @@ async function loadOne(modelInfo) {
         }
       },
     });
+    if (instance.dtype !== currentVariant()) {
+      models.dispose(instance);
+      ui.setModelState(card, 'idle', { message: 'variante cambiata, ricarica il modello' });
+      return;
+    }
     loaded.set(modelInfo.key, instance);
     ui.setModelState(card, 'ready', { message: `variante ${instance.dtype}` });
   } catch (error) {
