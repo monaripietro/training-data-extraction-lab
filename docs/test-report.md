@@ -46,6 +46,12 @@ Nessun testo del Pile in questo file: solo id, conteggi, quote e tempi (vedi `do
 | float16, `step143000` | | | |
 | fp32, modelli `-v0` | | | |
 
+**Pulizia (28/11):** cancellata la cache del dataset (20 GB recuperati); restano in cache i modelli (5,9 GB), sufficienti per `--recheck`.
+
+## T4 — Controlli
+
+**Generazione (28/11, `prepare_prefixes.py --controls`, fp32, `step143000`):** 6 controlli (`c01`–`c06`), nessun avviso di completamento esatto. `reproduced_pytorch` è `false` per entrambi i modelli su tutte le voci; token iniziali coincidenti al massimo 1 su 32 (c01: 1/0, c06: 1/1, gli altri 0/0). CA2 è quindi soddisfatto in PyTorch; resta da verificare nel browser con #35.
+
 ## Sprint 2: prove nel browser
 
 | Data | Issue | Browser | Esito |

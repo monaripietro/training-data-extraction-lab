@@ -42,7 +42,7 @@ Parallelismo: i moduli puri `compare.js` e `tokens.js` (#35) partono subito dopo
 | T3 preparazione dei prefissi reali | **fatta** il 28/11 (276 candidati, 72 % riprodotti) | sessione locale, `CLAUDE.md` |
 | T3 diagnosi del 72 % | dopo #54 | `--recheck` in tre configurazioni |
 | T3 revisione manuale e `--finalize` | dopo T3 | a mano su `data/candidates.json` |
-| T4 generazione di `site/controls.json` | ora | sessione locale, `prepare_prefixes.py --controls` |
+| T4 generazione di `site/controls.json` | **fatta** il 28/11 (6 controlli, nessun completamento esatto); da versionare | sessione locale, `prepare_prefixes.py --controls` |
 | Verifiche nel browser di ogni issue | a ogni PR | passi indicati nel resoconto di Vibe |
 | CA1–CA6 e RNF3 su tre portatili | fine sprint 2 e 3 | `docs/test-report.md` |
 | Conferma di D4 e D5 | prima dello sprint 3 | commento su #40 |
