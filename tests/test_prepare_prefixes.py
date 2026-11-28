@@ -1,7 +1,9 @@
+import io
 import json
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest import mock
 
@@ -185,6 +187,76 @@ class ControlsPipelineTests(unittest.TestCase):
         source = json.loads((FIXTURES / "controls_source_short.json").read_text(encoding="utf-8"))
         with self.assertRaises(pp.PreparazioneError):
             pp.build_control_entries(source, tokenizer)
+
+
+class ControlPytorchTests(unittest.TestCase):
+    def build_entries(self):
+        tokenizer = FakeTokenizer()
+        source = json.loads((FIXTURES / "controls_source.json").read_text(encoding="utf-8"))
+        return pp.build_control_entries(source, tokenizer)
+
+    def generate_exact(self, model, prefix_ids):
+        return [97] * len(prefix_ids)
+
+    def generate_different(self, model, prefix_ids):
+        return [42] * len(prefix_ids)
+
+    def test_exact_continuation_prints_warning(self):
+        entries = self.build_entries()
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            pp.evaluate_controls(entries, {"duped": object()}, self.generate_exact)
+        output = buffer.getvalue()
+        self.assertIn("Attenzione", output)
+        self.assertIn("c01", output)
+        self.assertIn("duped", output)
+        self.assertEqual(entries[0]["reproduced_pytorch"], {"duped": True})
+        self.assertEqual(entries[0]["matching_tokens"], {"duped": 32})
+
+    def test_different_continuation_prints_no_warning(self):
+        entries = self.build_entries()
+        buffer = io.StringIO()
+        with redirect_stdout(buffer):
+            pp.evaluate_controls(entries, {"duped": object()}, self.generate_different)
+        self.assertNotIn("Attenzione", buffer.getvalue())
+        self.assertEqual(entries[0]["reproduced_pytorch"], {"duped": False})
+        self.assertEqual(entries[0]["matching_tokens"], {"duped": 0})
+
+    def test_both_models_are_recorded(self):
+        entries = self.build_entries()[:1]
+        models = {"duped": object(), "deduped": object()}
+        pp.evaluate_controls(entries, models, self.generate_different)
+        self.assertEqual(
+            entries[0]["reproduced_pytorch"], {"duped": False, "deduped": False}
+        )
+        self.assertEqual(
+            entries[0]["matching_tokens"], {"duped": 0, "deduped": 0}
+        )
+
+    def test_common_prefix_length(self):
+        self.assertEqual(pp.common_prefix_length([1, 2, 3, 4], [1, 2, 9, 4]), 2)
+        self.assertEqual(pp.common_prefix_length([1], [2]), 0)
+        self.assertEqual(pp.common_prefix_length([], []), 0)
+
+    def test_skip_pytorch_writes_file_without_models(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "controls.json"
+            with mock.patch.object(pp, "load_tokenizer", return_value=FakeTokenizer()):
+                code = pp.main([
+                    "--controls", str(FIXTURES / "controls_source.json"),
+                    "--controls-out", str(out),
+                    "--skip-pytorch",
+                ])
+            self.assertEqual(code, 0)
+            written = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual([e["id"] for e in written], ["c01", "c02"])
+            for entry in written:
+                self.assertNotIn("reproduced_pytorch", entry)
+                self.assertNotIn("matching_tokens", entry)
+
+    def test_parse_args_has_skip_pytorch_flag(self):
+        args = pp.parse_args(["--controls", "x", "--skip-pytorch"])
+        self.assertTrue(args.skip_pytorch)
 
 
 class FinalizeEmptyOutputTests(unittest.TestCase):

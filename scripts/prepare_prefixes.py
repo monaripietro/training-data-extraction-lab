@@ -135,23 +135,27 @@ def build_control_entries(controls_source, tokenizer):
     return entries
 
 
-def generate_continuations(model, entries):
+def greedy_generate(model, prefix_ids):
     import torch
 
+    input_ids = torch.tensor([prefix_ids], dtype=torch.int64)
+    attention_mask = torch.ones_like(input_ids)
+    output = model.generate(
+        input_ids=input_ids,
+        attention_mask=attention_mask,
+        do_sample=False,
+        num_beams=1,
+        max_new_tokens=EXPECTED_LEN,
+    )
+    return output[0][len(prefix_ids):].tolist()
+
+
+def generate_continuations(model, entries):
     model.generation_config.eos_token_id = None
     for entry in entries:
-        prefix_ids = entry["prefix_ids"]
-        input_ids = torch.tensor([prefix_ids], dtype=torch.int64)
-        attention_mask = torch.ones_like(input_ids)
-        output = model.generate(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            do_sample=False,
-            num_beams=1,
-            max_new_tokens=EXPECTED_LEN,
+        entry["reproduced_pytorch"] = (
+            greedy_generate(model, entry["prefix_ids"]) == entry["expected_ids"]
         )
-        generated = output[0][len(prefix_ids):].tolist()
-        entry["reproduced_pytorch"] = generated == entry["expected_ids"]
 
 
 def check_reproduction_quota(entries):
@@ -312,12 +316,67 @@ def run_finalize(args):
     )
 
 
+CONTROL_MODEL_REPOS = {
+    "duped": "EleutherAI/pythia-70m",
+    "deduped": "EleutherAI/pythia-70m-deduped",
+}
+
+
+def load_causal_model(repo_id):
+    try:
+        from transformers import AutoModelForCausalLM
+
+        model = AutoModelForCausalLM.from_pretrained(
+            repo_id, revision=REVISION_STEP, torch_dtype="float32"
+        )
+        model.eval()
+        model.generation_config.eos_token_id = None
+        return model
+    except Exception as exc:
+        raise PreparazioneError(
+            f"impossibile caricare il modello {repo_id} alla revisione "
+            f"{REVISION_STEP}: verifica la connessione a Hugging Face ({exc})"
+        )
+
+
+def common_prefix_length(first, second):
+    count = 0
+    for token_a, token_b in zip(first, second):
+        if token_a != token_b:
+            break
+        count += 1
+    return count
+
+
+def evaluate_controls(entries, models, generate_fn=greedy_generate):
+    for entry in entries:
+        reproduced = {}
+        matching = {}
+        for key, model in models.items():
+            generated = generate_fn(model, entry["prefix_ids"])
+            reproduced[key] = generated == entry["expected_ids"]
+            matching[key] = common_prefix_length(generated, entry["expected_ids"])
+            if reproduced[key]:
+                print(
+                    f"Attenzione: il controllo {entry['id']} e completato in modo "
+                    f"esatto dal modello {key}: non e un buon controllo, va "
+                    "sostituito prima di T7 (CA2)"
+                )
+        entry["reproduced_pytorch"] = reproduced
+        entry["matching_tokens"] = matching
+
+
 def run_controls(args):
     tokenizer = load_tokenizer("EleutherAI/pythia-70m")
     controls_source = read_json(args.controls)
     if not isinstance(controls_source, list):
         raise PreparazioneError(f"il file {args.controls} non contiene un elenco di controlli")
     entries = build_control_entries(controls_source, tokenizer)
+    if entries and not args.skip_pytorch:
+        models = {
+            key: load_causal_model(repo_id) for key, repo_id in CONTROL_MODEL_REPOS.items()
+        }
+        evaluate_controls(entries, models)
     write_json(args.controls_out, entries)
     print(f"Scritti {len(entries)} controlli in {args.controls_out}")
 
@@ -352,6 +411,11 @@ def parse_args(argv):
     )
     parser.add_argument("--controls", help="file sorgente dei controlli (T4)")
     parser.add_argument("--controls-out", default="site/controls.json", help="output dei controlli")
+    parser.add_argument(
+        "--skip-pytorch",
+        action="store_true",
+        help="genera i controlli senza scaricare i modelli PyTorch",
+    )
     return parser.parse_args(argv)
 
 
