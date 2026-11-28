@@ -235,3 +235,25 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+#trainer-tools h3 {
+  font-size: 1rem;
+  margin: 1.5rem 0 0.5rem;
+}
+
+#batch-table {
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+
+#batch-table th,
+#batch-table td {
+  border: 1px solid var(--border);
+  padding: 0.25rem 0.5rem;
+  text-align: left;
+}
+
+#batch-summary {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.5rem;
+}

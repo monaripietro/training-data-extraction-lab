@@ -52,6 +52,25 @@
           <option value="q8" selected>q8 (quantizzata, predefinita)</option>
           <option value="fp32">fp32 (precisione intera)</option>
         </select>
+        <h3>Esecuzione di tutte le voci</h3>
+        <p>
+          <label>
+            <input type="checkbox" id="batch-both"> Su entrambi i modelli
+          </label>
+        </p>
+        <p>
+          <button id="batch-run" type="button">Esegui tutti</button>
+          <button id="batch-stop" type="button" disabled>Interrompi</button>
+        </p>
+        <p id="batch-progress" role="status"></p>
+        <div id="batch-result" hidden>
+          <table id="batch-table"></table>
+          <ul id="batch-summary"></ul>
+          <p>
+            <button id="batch-copy-md" type="button">Copia tabella</button>
+            <button id="batch-copy-tsv" type="button">Copia per il foglio</button>
+          </p>
+        </div>
       </div>
     </section>
     <section aria-labelledby="mode-b-title">
