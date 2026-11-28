@@ -73,8 +73,36 @@
         </div>
       </div>
     </section>
-    <section aria-labelledby="mode-b-title">
-      <h2 id="mode-b-title">Modalità B: prefissi noti</h2>
+    <nav aria-label="Modalità" class="mode-tabs">
+      <button type="button" class="mode-tab" data-mode="a" aria-pressed="false">Modalità A · alla cieca</button>
+      <button type="button" class="mode-tab" data-mode="b" aria-pressed="true">Modalità B · prefissi noti</button>
+      <button type="button" class="mode-tab" data-mode="c" aria-pressed="false">Modalità C · confronto</button>
+    </nav>
+    <section aria-labelledby="mode-a-title" id="mode-a-section" hidden>
+      <h2 id="mode-a-title">Modalità A: alla cieca</h2>
+      <p class="hint">
+        Scrivi un testo libero e genera 32 token. Il testo resta nel browser:
+        non viene inviato da nessuna parte.
+      </p>
+      <label for="a-model">Modello</label>
+      <select id="a-model">
+        <option value="">Nessun modello caricato</option>
+      </select>
+      <label for="a-text">Testo di partenza</label>
+      <textarea id="a-text" rows="4" placeholder="Scrivi qui il testo di partenza…"></textarea>
+      <p>
+        <button id="a-generate" type="button" disabled>Genera</button>
+      </p>
+      <p id="a-status" role="status"></p>
+      <div id="a-result" hidden>
+        <p class="hint">
+          Nota didattica: senza sapere che cosa cercare, questo output non dice
+          se il testo è stato memorizzato dal modello.
+        </p>
+        <p id="a-output" class="a-output"></p>
+      </div>
+    </section>
+    <section aria-labelledby="mode-b-title" id="mode-b-section">
       <p class="hint">
         Scegli un prefisso dall'elenco e genera 32 token. La continuazione
         attesa resta nascosta finché non generi.
@@ -100,6 +128,47 @@
           </div>
         </div>
       </div>
+    </section>
+    <section aria-labelledby="mode-c-title" id="mode-c-section" hidden>
+      <h2 id="mode-c-title">Modalità C: confronto tra i due modelli</h2>
+      <p class="hint">
+        Lo stesso prefisso, per ID, eseguito su entrambi i modelli: il primo è
+        addestrato sui dati originali, il secondo sui dati deduplicati.
+        Scegli un prefisso dall'elenco della modalità B e premi «Confronta».
+      </p>
+      <p>
+        <button id="c-compare" type="button" disabled>Confronta</button>
+      </p>
+      <p id="c-status" role="status"></p>
+      <div id="c-result" hidden>
+        <div class="c-columns">
+          <div>
+            <h3 id="c-duped-title">Pythia 70M (dati originali)</h3>
+            <p id="c-duped-summary" class="b-summary"></p>
+            <h4>Atteso</h4>
+            <ol id="c-duped-expected" class="token-list"></ol>
+            <h4>Generato</h4>
+            <ol id="c-duped-generated" class="token-list"></ol>
+          </div>
+          <div>
+            <h3 id="c-deduped-title">Pythia 70M deduplicato</h3>
+            <p id="c-deduped-summary" class="b-summary"></p>
+            <h4>Atteso</h4>
+            <ol id="c-deduped-expected" class="token-list"></ol>
+            <h4>Generato</h4>
+            <ol id="c-deduped-generated" class="token-list"></ol>
+          </div>
+        </div>
+      </div>
+      <aside class="c-facts" aria-labelledby="c-facts-title">
+        <h3 id="c-facts-title">I dati di addestramento</h3>
+        <p>
+          Le sequenze memorizzate conosciute sono
+          <a href="https://huggingface.co/datasets/EleutherAI/pythia-memorized-evals" rel="noopener">463.953 per il modello sui dati originali</a>
+          e 411.448 per quello sui dati deduplicati: una differenza di circa
+          l'11 %. Gli indici dei due insiemi non sono confrontabili.
+        </p>
+      </aside>
     </section>
     <section aria-labelledby="debug-title">
       <h2 id="debug-title">Prova di generazione</h2>

@@ -89,6 +89,12 @@ export async function generateFromIds(loaded, prefixIds, transformersModule = nu
   return row.slice(-NEW_TOKENS).map((id) => Number(id));
 }
 
+export async function tokenizeText(loaded, text) {
+  const encoded = await loaded.tokenizer(text);
+  const ids = encoded.input_ids?.data ?? encoded.input_ids;
+  return Array.from(ids, (id) => Number(id));
+}
+
 export function dispose(loaded) {
   loaded?.model?.dispose?.();
   loaded?.tokenizer?.dispose?.();
