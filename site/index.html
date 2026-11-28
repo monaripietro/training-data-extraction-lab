@@ -24,13 +24,35 @@
         la variante <abbr title="virgola mobile a 32 bit">fp32</abbr> usa la
         precisione intera.
       </p>
-      <label for="variant">Variante ONNX</label>
-      <select id="variant">
-        <option value="q8" selected>q8 (quantizzata, predefinita)</option>
-        <option value="fp32">fp32 (precisione intera)</option>
-      </select>
       <div id="model-cards"></div>
       <button id="load-both" type="button">Carica entrambi</button>
+    </section>
+    <section aria-labelledby="prefixes-title">
+      <h2 id="prefixes-title">Prefissi</h2>
+      <p class="hint">
+        Carica <code>prefixes.json</code> dal disco: il file resta nel browser
+        e non viene inviato da nessuna parte. Senza file sono disponibili solo
+        i prefissi di controllo.
+      </p>
+      <label for="prefix-file">File prefixes.json</label>
+      <input type="file" id="prefix-file" accept=".json,application/json">
+      <p id="prefix-dropzone" aria-hidden="true">
+        …oppure trascina qui il file
+      </p>
+      <p id="prefix-status" role="status"></p>
+      <ul id="prefix-list"></ul>
+      <p>
+        <label>
+          <input type="checkbox" id="trainer-view"> Vista del formatore
+        </label>
+      </p>
+      <div id="trainer-tools" hidden>
+        <label for="variant">Variante ONNX</label>
+        <select id="variant">
+          <option value="q8" selected>q8 (quantizzata, predefinita)</option>
+          <option value="fp32">fp32 (precisione intera)</option>
+        </select>
+      </div>
     </section>
     <section aria-labelledby="debug-title">
       <h2 id="debug-title">Prova di generazione</h2>
