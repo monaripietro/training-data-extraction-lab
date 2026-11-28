@@ -107,6 +107,7 @@ Scegliere circa 20 voci (o 10 + 10 se D6), leggibili, senza dati personali, con 
 **Fatto quando:** i due modelli si caricano in Chrome, Edge e Firefox, lo stato è visibile e la scheda Rete mostra solo CDN della libreria e host di Hugging Face. · RF1, RNF1, RNF2, RNF5, CA5
 
 ### T6 — Caricamento dei prefissi
+Nota di formato (PR #28): `reproduced_pytorch` è un booleano nelle voci `memorized` e un oggetto `{"duped": bool, "deduped": bool}` nei controlli, che hanno anche `matching_tokens` con le stesse chiavi. La validazione deve accettare entrambe le forme; i campi servono solo alla vista del formatore.
 Selettore di file e trascinamento di `prefixes.json`; validazione dello schema (campi, 32 + 32 interi, `reviewed: true`) con errori in italiano; lettura con `FileReader`, nessun invio, nessun salvataggio in `localStorage`. Senza file: elenco con i soli controlli.
 **Fatto quando:** un file valido popola l'elenco; un file malformato mostra l'errore senza bloccare la pagina; la scheda Rete non mostra richieste al caricamento. · RF0, RNF1
 

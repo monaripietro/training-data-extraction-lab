@@ -18,6 +18,7 @@ Vale per qualsiasi file con testi o ID di token del Pile (`data/`, export del re
 
 ## Prevenzione
 
-- Hook installati sul clone locale: `bash scripts/install-hooks.sh`.
+- Hook installati sul clone locale: `bash scripts/install-hooks.sh` (pre-commit e pre-push). Da rieseguire dopo ogni modifica dello script.
+- Mai `git commit --no-verify` né `git push --no-verify`: saltano gli hook. Con `--no-verify` sul commit, il pre-push blocca comunque; con `--no-verify` sul push resta solo la CI, che interviene quando il file è già pubblico.
 - `data/` resta in `.gitignore`; mai `git add -f` su file di `data/`.
 - Le sessioni di Claude Code e di Vibe non leggono `data/` (`CLAUDE.md`, `AGENTS.md`).
