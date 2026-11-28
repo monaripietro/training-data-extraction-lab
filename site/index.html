@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lab estrazione dati di addestramento</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header>
+    <h1>I modelli linguistici memorizzano i dati di addestramento?</h1>
+    <p>
+      Questo laboratorio esegue due modelli Pythia 70M direttamente nel tuo
+      browser, senza inviare dati ad alcun server.
+    </p>
+  </header>
+  <main>
+    <section aria-labelledby="models-title">
+      <h2 id="models-title">Modelli</h2>
+      <p class="hint">
+        I modelli si caricano su richiesta. La variante quantizzata
+        <abbr title="quantizzazione a 8 bit">q8</abbr> è più rapida da scaricare;
+        la variante <abbr title="virgola mobile a 32 bit">fp32</abbr> usa la
+        precisione intera.
+      </p>
+      <label for="variant">Variante ONNX</label>
+      <select id="variant">
+        <option value="q8" selected>q8 (quantizzata, predefinita)</option>
+        <option value="fp32">fp32 (precisione intera)</option>
+      </select>
+      <div id="model-cards"></div>
+      <button id="load-both" type="button">Carica entrambi</button>
+    </section>
+    <section aria-labelledby="debug-title">
+      <h2 id="debug-title">Prova di generazione</h2>
+      <p>
+        Genera 32 token partendo dal primo prefisso di controllo di
+        <code>controls.json</code>; se il file non è disponibile, usa un
+        prefisso sintetico di 32 ID.
+      </p>
+      <button id="debug-generate" type="button">Genera 32 token</button>
+      <output id="debug-output" for="debug-generate" aria-live="polite"></output>
+    </section>
+  </main>
+  <footer>
+    <p><a href="netcheck.html">Verifica della rete (netcheck)</a></p>
+  </footer>
+</body>
+</html>

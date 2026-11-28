@@ -17,6 +17,12 @@ jobs:
         run: bash tests/test_check_no_pile.sh
       - name: Test dello script dei prefissi (solo dati sintetici)
         run: python3 -m unittest discover tests
+      - name: Imposta Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test dei moduli JavaScript (nessuna installazione)
+        run: node --test "tests/js/*.test.js"
       - name: Controlla l'albero finale
         run: bash scripts/check_no_pile.sh --tree
       - name: Controlla ogni commit della pull request
