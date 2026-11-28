@@ -25,11 +25,20 @@ Nessun testo del Pile in questo file: solo id, conteggi, quote e tempi (vedi `do
 | Data | Rete | Computer e browser | Hugging Face | Host di download | jsDelivr | Velocità | Esito |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | | rete del cliente | | | | | | |
+| 28/11/2026 | rete di casa (controllo) | Mac, Chrome 158; `site/netcheck.html` da localhost | OK (170–240 ms) | OK, `us.aws.cdn.hf.co` (0,7–1,1 s) | OK (274 ms) | 2,5 MB/s (71 MB in 28,2 s) | tutti raggiungibili; WASM sì, thread no, Cache API sì, circa 2000 MB di spazio per la cache |
 | 28/11/2026 | rete di casa (controllo) | Mac arm64, macOS 27.2.1; `scripts/netcheck.py`, Python 3.12 (non browser) | OK (240–450 ms) | OK, `us.aws.cdn.hf.co` (circa 1,2 s) | OK (184 ms) | 4,1 MB/s (71 MB in 17,3 s) | tutti raggiungibili |
 
-**Stato di T0 (28/11):** riga di controllo compilata. Con 4,1 MB/s il primo download di un modello quantizzato (circa 70 MB) richiede circa 20 s; quello di un modello fp32 (circa 290 MB) poco più di un minuto. Restano da fare la prova **dalla rete del cliente** e la prova **nel browser** con `site/netcheck.html`, che controlla anche WebAssembly, cache e CORS.
+**Stato di T0 (28/11):** righe di controllo compilate, da riga di comando e da browser. Con 4,1 MB/s il primo download di un modello quantizzato (circa 70 MB) richiede circa 20 s; quello di un modello fp32 (circa 290 MB) poco più di un minuto. Resta da fare la prova **dalla rete del cliente** con `site/netcheck.html`.
+
+**File ONNX disponibili (28/11, identici per i due modelli):** `onnx/model_quantized.onnx` circa 71 MB (variante `q8`), `onnx/model.onnx` circa 282 MB (`fp32`); presenti anche `int8`, `uint8`, `fp16`, `q4`, `q4f16`, `bnb4` e le versioni `decoder_*`.
 
 **Se l'esito è negativo:** aprire il task del piano B prima di T5. Il piano B consiste nel servire i file del modello dal portatile del formatore o da un server interno, configurando `env.localModelPath` in Transformers.js.
+
+## Sprint 2: prove nel browser
+
+| Data | Issue | Browser | Esito |
+| --- | --- | --- | --- |
+| 28/11/2026 | #33 (PR #42) | Chrome 158, Mac, localhost | generazione di 32 ID riuscita su prefisso sintetico (controls.json non ancora generato); percentuale di caricamento errata → #46; Edge, Firefox, `fp32` e scheda Rete da verificare |
 
 ## CA1-CA6, RNF3
 
