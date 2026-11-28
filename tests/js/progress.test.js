@@ -109,3 +109,18 @@ test('formatBytes shows MB or kB', () => {
   assert.equal(formatBytes(29_500_000), '30 MB');
   assert.equal(formatBytes(70_000_000), '70 MB');
 });
+
+test('snapshot exposes coherent MB fields', () => {
+  const tracker = createProgressTracker();
+  const snapshot = tracker.update({
+    status: 'progress',
+    name: 'model',
+    file: 'model_quantized.onnx',
+    progress: 42,
+    loaded: 30_000_000,
+    total: 71_000_000,
+  });
+  assert.equal(snapshot.loadedMB, 30);
+  assert.equal(snapshot.totalMB, 71);
+  assert.equal(snapshot.percent, 42);
+});

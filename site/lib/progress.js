@@ -53,6 +53,8 @@ export function createProgressTracker() {
       percent,
       loadedBytes: loaded,
       totalBytes: total,
+      loadedMB: Math.round(loaded / 1_000_000),
+      totalMB: total > 0 ? Math.round(total / 1_000_000) : 0,
       hasUnknownTotal,
       complete: finished,
     };
