@@ -14,6 +14,7 @@ import { exactMatch, commonPrefixLength, segments } from './lib/compare.js';
 import { decodePerToken, visibleWhitespace, visibleTokenText } from './lib/tokens.js';
 import { createProgressTracker, formatBytes } from './lib/progress.js';
 import * as batch from './lib/batch.js';
+import * as experimentLog from './lib/log.js';
 
 const SHUFFLE_SEED = 20261128;
 
@@ -23,6 +24,7 @@ let memorizedEntries = [];
 let controlEntries = [];
 let mergedPrefixes = [];
 let selectedPrefix = null;
+const attempts = [];
 
 function variantSelect() {
   return document.getElementById('variant');
@@ -178,6 +180,17 @@ async function generateModeB() {
   try {
     const generatedIds = await models.generateFromIds(instance, selectedPrefix.prefix_ids);
     renderModeBResult(selectedPrefix, generatedIds, instance);
+    recordAttempt({
+      time: new Date().toISOString(),
+      mode: 'B',
+      model: batch.modelLabel(modelKey),
+      variant: currentVariant(),
+      id: selectedPrefix.id,
+      exactMatch: exactMatch(selectedPrefix.expected_ids, generatedIds),
+      commonTokens: commonPrefixLength(selectedPrefix.expected_ids, generatedIds),
+      prompt: selectedPrefix.prefix_text,
+      output: generatedIds.join(' '),
+    });
   } catch (error) {
     setModeBStatus(`Generazione non riuscita: ${error.message}`);
   }
@@ -415,6 +428,17 @@ async function generateModeA() {
       .join('');
     document.getElementById('a-output').textContent = output;
     document.getElementById('a-result').hidden = false;
+    recordAttempt({
+      time: new Date().toISOString(),
+      mode: 'A',
+      model: batch.modelLabel(modelKey),
+      variant: currentVariant(),
+      id: '',
+      exactMatch: null,
+      commonTokens: null,
+      prompt: text,
+      output,
+    });
     setModeAStatus(
       `Generati ${generatedIds.length} token oltre al testo di partenza.`
     );
@@ -470,6 +494,17 @@ async function generateModeC() {
       setModeCStatus(`Genero con ${modelInfo.label}…`);
       const generatedIds = await models.generateFromIds(instance, selectedPrefix.prefix_ids);
       renderModeCSide(selectedPrefix, generatedIds, instance, modelInfo.key);
+      recordAttempt({
+        time: new Date().toISOString(),
+        mode: 'C',
+        model: batch.modelLabel(modelInfo.key),
+        variant: currentVariant(),
+        id: selectedPrefix.id,
+        exactMatch: exactMatch(selectedPrefix.expected_ids, generatedIds),
+        commonTokens: commonPrefixLength(selectedPrefix.expected_ids, generatedIds),
+        prompt: selectedPrefix.prefix_text,
+        output: generatedIds.join(' '),
+      });
       if (!wasLoaded) {
         models.dispose(instance);
         loaded.delete(modelInfo.key);
@@ -655,6 +690,43 @@ async function copyBatchText(text, button) {
   }
 }
 
+
+function recordAttempt(attempt) {
+  experimentLog.addAttempt(attempts, attempt);
+  document.getElementById('log-count').textContent =
+    attempts.length === 1
+      ? 'Registrato 1 tentativo.'
+      : `Registrati ${attempts.length} tentativi.`;
+  document.getElementById('log-csv').disabled = false;
+  document.getElementById('log-copy-tsv').disabled = false;
+}
+
+function includeLogTexts() {
+  return document.getElementById('log-texts').checked;
+}
+
+function exportCsv() {
+  const csv = experimentLog.toCSV(attempts, { includeTexts: includeLogTexts() });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'registro.csv';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+async function copyLogTsv() {
+  const tsv = experimentLog.toTSV(attempts, { includeTexts: includeLogTexts() });
+  try {
+    await navigator.clipboard.writeText(tsv);
+    document.getElementById('log-count').textContent =
+      'Tabella TSV copiata: incollala nel foglio.';
+  } catch (error) {
+    document.getElementById('log-count').textContent =
+      'Copia non riuscita: gli appunti non sono disponibili.';
+  }
+}
+
 function init() {
   const cardsContainer = document.getElementById('model-cards');
   for (const modelInfo of models.MODELS) {
@@ -708,6 +780,14 @@ function init() {
   document.getElementById('a-text').addEventListener('input', updateModeAButton);
   document.getElementById('a-generate').addEventListener('click', generateModeA);
   document.getElementById('c-compare').addEventListener('click', generateModeC);
+  document.getElementById('log-csv').addEventListener('click', exportCsv);
+  document.getElementById('log-copy-tsv').addEventListener('click', copyLogTsv);
+  window.addEventListener('beforeunload', (event) => {
+    if (attempts.length > 0) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  });
   setActiveMode('b');
   document.getElementById('batch-run').addEventListener('click', runBatch);
   document.getElementById('batch-stop').addEventListener('click', () => {

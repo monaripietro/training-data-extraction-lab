@@ -170,6 +170,23 @@
         </p>
       </aside>
     </section>
+    <section aria-labelledby="log-title">
+      <h2 id="log-title">Registro dei tentativi</h2>
+      <p class="hint">
+        Ogni generazione resta in memoria finché la pagina è aperta: nessun
+        salvataggio nel browser. Se chiudi la pagina, il registro si perde.
+      </p>
+      <p id="log-count" role="status">Nessun tentativo registrato.</p>
+      <p>
+        <label>
+          <input type="checkbox" id="log-texts"> Includi i testi (per default i testi non vengono esportati)
+        </label>
+      </p>
+      <p>
+        <button id="log-csv" type="button" disabled>Esporta CSV</button>
+        <button id="log-copy-tsv" type="button" disabled>Copia per il foglio</button>
+      </p>
+    </section>
     <section aria-labelledby="debug-title">
       <h2 id="debug-title">Prova di generazione</h2>
       <p>
