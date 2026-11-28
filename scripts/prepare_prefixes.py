@@ -299,6 +299,12 @@ def run_finalize(args):
     if not isinstance(entries, list):
         raise PreparazioneError(f"il file {args.candidates} non contiene un elenco di voci")
     reviewed = finalize_entries(entries, tokenizer.decode)
+    if not reviewed:
+        raise PreparazioneError(
+            f"nessuna voce riveduta in {args.candidates}: quasi certamente la "
+            "revisione non e stata salvata oppure e stato passato il file "
+            f"sbagliato; non scrivo {args.prefixes_out}"
+        )
     write_json(args.prefixes_out, reviewed)
     print(
         f"Scritte {len(reviewed)} voci rivedute in {args.prefixes_out} "
