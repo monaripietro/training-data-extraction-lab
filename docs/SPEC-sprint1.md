@@ -4,7 +4,7 @@ Versione 0.2 · 26 novembre 2026 · Autore: Pietro Monari
 Destinatario: Claude Code (analisi, piano, revisione). Implementazione: Mistral Vibe.
 Licenza del progetto: Apache-2.0. Repository pubblico su GitHub, pagina su GitHub Pages.
 
-> Le osservazioni di Claude Code su questa versione sono in `docs/tasks.md`, sezione 1. Le decisioni prese dopo vanno riportate qui con un nuovo numero di versione.
+> **Superata da `docs/SPEC.md` v0.3 (28/11/2026).** Questo file resta come storico.
 
 ---
 

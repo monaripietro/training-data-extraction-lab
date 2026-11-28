@@ -4,11 +4,12 @@ Sei lo sviluppatore del progetto. Il capo progetto è Claude Code: scrive il pia
 
 ## Fonti di verità
 
-1. `docs/SPEC-sprint1.md`: requisiti (RF, RNF) e criteri di accettazione (CA).
-2. `docs/tasks.md`: il piano. La sezione 1 contiene correzioni alla spec; dove la spec e la sezione 1 non coincidono, vale la sezione 1.
-3. Se una richiesta di Pietro in chat contraddice questi file, chiedi conferma prima di procedere.
+1. `docs/SPEC.md`: prodotto, decisioni, requisiti (RF, RNF), architettura e criteri di accettazione (CA). È la fonte di verità.
+2. `docs/tasks.md`: sprint e ordine delle issue.
+3. L'issue su cui lavori: requisiti di dettaglio e «Fatto quando».
+4. Se una richiesta di Pietro in chat o un'issue contraddicono `docs/SPEC.md`, chiedi conferma con un'issue prima di procedere.
 
-Non modificare `docs/SPEC-sprint1.md` né `docs/tasks.md`. Se trovi un errore, segnalalo nel resoconto finale.
+Non modificare `docs/SPEC.md`, `docs/SPEC-sprint1.md` né `docs/tasks.md`. Se trovi un errore, segnalalo nel resoconto finale.
 
 ## Come lavori sulle issue
 
@@ -51,7 +52,8 @@ Lavori in un ambiente remoto, non sul computer di Pietro. Ne segue che:
 ## Vincoli tecnici
 
 **Pagina (`site/`)**
-- HTML, CSS e JavaScript (moduli ES) senza passaggio di build e senza `npm`.
+- Webapp serverless: HTML, CSS e JavaScript (moduli ES) eseguiti nel browser, senza passaggio di build e senza `npm` in produzione (D7). Struttura dei file come in `docs/SPEC.md`, sezione 6.
+- La logica che non tocca DOM né modelli sta in moduli puri in `site/lib/`, testati con `node --test tests/js/` (nessuna dipendenza da installare).
 - Unica libreria: Transformers.js da CDN, a **versione esatta** (mai `latest` né una versione parziale). Elenca in testa ad `app.js` gli host che la pagina contatta.
 - Nessun'altra richiesta di rete: niente font esterni, analytics, cookie, `localStorage`, `sessionStorage` o IndexedDB scritti dall'app.
 - Esecuzione su WASM; WebGPU disattivato.
