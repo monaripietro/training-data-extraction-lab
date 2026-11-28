@@ -13,6 +13,7 @@ import { validateEntries, mergeAndShuffle } from './lib/prefixes.js';
 import { exactMatch, commonPrefixLength, segments } from './lib/compare.js';
 import { decodePerToken, visibleWhitespace, visibleTokenText } from './lib/tokens.js';
 import { createProgressTracker, formatBytes } from './lib/progress.js';
+import * as batch from './lib/batch.js';
 
 const SHUFFLE_SEED = 20261128;
 
@@ -36,6 +37,11 @@ async function loadOne(modelInfo) {
   if (loaded.has(modelInfo.key) || card.button.disabled) {
     return;
   }
+  await performLoad(modelInfo);
+}
+
+async function performLoad(modelInfo) {
+  const card = cards.get(modelInfo.key);
   ui.setModelState(card, 'preparing', { message: 'nessun dato scaricato' });
   const tracker = createProgressTracker();
   try {
@@ -258,7 +264,7 @@ function rebuildPrefixList() {
 }
 
 function readPrefixesFile(file) {
-  if (!file) {
+  if (!file || batchRunning) {
     return;
   }
   setPrefixStatus(`Lettura di ${file.name}…`);
@@ -337,6 +343,180 @@ async function runDebugGeneration(output) {
   }
 }
 
+let batchRunning = false;
+let batchAbort = false;
+let lastBatchOutput = { results: [], summary: null, meta: {} };
+
+function setBatchProgress(text) {
+  document.getElementById('batch-progress').textContent = text;
+}
+
+function setBatchControls(running) {
+  batchRunning = running;
+  variantSelect().disabled = running;
+  document.getElementById('load-both').disabled = running;
+  document.getElementById('prefix-file').disabled = running;
+  for (const modelInfo of models.MODELS) {
+    const card = cards.get(modelInfo.key);
+    card.button.disabled = running || loaded.has(modelInfo.key);
+  }
+  document.getElementById('batch-run').disabled = running;
+  document.getElementById('batch-both').disabled = running;
+  document.getElementById('batch-stop').disabled = !running;
+}
+
+async function ensureModelForBatch(modelInfo) {
+  const instance = loaded.get(modelInfo.key);
+  if (instance && instance.dtype === currentVariant()) {
+    return instance;
+  }
+  if (instance) {
+    models.dispose(instance);
+    loaded.delete(modelInfo.key);
+  }
+  setBatchProgress(`Carico ${modelInfo.label}…`);
+  await performLoad(modelInfo);
+  return loaded.get(modelInfo.key) ?? null;
+}
+
+function renderBatchResults(results, summary, meta) {
+  const table = document.getElementById('batch-table');
+  table.textContent = '';
+  const header = ui.el(
+    'tr',
+    {},
+    ...['voce', 'tipo', 'split', 'modello', 'variante', 'esatta', 'token coincidenti', 'ms'].map(
+      (label) => ui.el('th', { scope: 'col', text: label })
+    )
+  );
+  table.append(ui.el('thead', {}, header));
+  const body = ui.el('tbody');
+  for (const row of results) {
+    body.append(
+      ui.el(
+        'tr',
+        {},
+        ...[row.id, row.type, row.split ?? '—', row.model, row.variant,
+          row.exact ? 'sì' : 'no', `${row.commonTokens}/32`, String(row.timeMs)].map(
+          (value) => ui.el('td', { text: value })
+        )
+      )
+    );
+  }
+  table.append(body);
+  const summaryList = document.getElementById('batch-summary');
+  summaryList.textContent = '';
+  for (const group of summary.groups) {
+    const percent = Math.round((group.exact / group.total) * 100);
+    summaryList.append(
+      ui.el('li', {
+        text: `${group.split} su ${group.model}: esatte ${group.exact}/${group.total} (${percent} %)`,
+      })
+    );
+  }
+  summaryList.append(
+    ui.el('li', {
+      text: `controlli: corrispondenze esatte ${summary.controlsExact} su ${summary.controlRuns}`,
+    })
+  );
+  summaryList.append(
+    ui.el('li', {
+      text: `tempo di generazione: media ${summary.averageMs} ms, massimo ${summary.maxMs} ms`,
+    })
+  );
+  summaryList.append(
+    ui.el('li', {
+      text: `variante ${meta.variant} · Transformers.js ${meta.transformersVersion} · ` +
+        `core logici ${meta.hardwareConcurrency} · ${meta.userAgent}`,
+    })
+  );
+  document.getElementById('batch-result').hidden = false;
+}
+
+async function runBatch() {
+  if (mergedPrefixes.length === 0) {
+    setBatchProgress('Carica prima un file di prefissi (o i controlli).');
+    return;
+  }
+  const bothModels = document.getElementById('batch-both').checked;
+  const runs = batch.planRuns(mergedPrefixes, { bothModels });
+  setBatchControls(true);
+  batchAbort = false;
+  const variant = currentVariant();
+  const instances = {};
+  for (const modelInfo of models.MODELS) {
+    if (!runs.some((run) => run.modelKey === modelInfo.key)) {
+      continue;
+    }
+    const instance = await ensureModelForBatch(modelInfo);
+    if (!instance) {
+      setBatchProgress(
+        `Impossibile caricare ${modelInfo.label}: esecuzione annullata.`
+      );
+      setBatchControls(false);
+      return;
+    }
+    instances[modelInfo.key] = instance;
+  }
+  const results = [];
+  for (let index = 0; index < runs.length; index += 1) {
+    if (batchAbort) {
+      setBatchProgress(`Interrotto: eseguite ${results.length} generazioni su ${runs.length}.`);
+      break;
+    }
+    const { entry, modelKey } = runs[index];
+    setBatchProgress(
+      `Voce ${index + 1} di ${runs.length} — ${batch.modelLabel(modelKey)}`
+    );
+    const start = performance.now();
+    let generatedIds;
+    try {
+      generatedIds = await models.generateFromIds(instances[modelKey], entry.prefix_ids);
+    } catch (error) {
+      setBatchProgress(`Generazione non riuscita per ${entry.id}: ${error.message}`);
+      setBatchControls(false);
+      return;
+    }
+    const timeMs = Math.round(performance.now() - start);
+    results.push({
+      id: entry.id,
+      type: entry.type,
+      split: entry.split,
+      model: batch.modelLabel(modelKey),
+      variant,
+      exact: exactMatch(entry.expected_ids, generatedIds),
+      commonTokens: commonPrefixLength(entry.expected_ids, generatedIds),
+      timeMs,
+    });
+  }
+  const summary = batch.summarize(results);
+  const meta = {
+    variant,
+    transformersVersion: models.TRANSFORMERS_VERSION,
+    userAgent: navigator.userAgent,
+    hardwareConcurrency: navigator.hardwareConcurrency,
+  };
+  lastBatchOutput = { results, summary, meta };
+  renderBatchResults(results, summary, meta);
+  if (!batchAbort) {
+    setBatchProgress(`Completato: ${results.length} generazioni.`);
+  }
+  setBatchControls(false);
+}
+
+async function copyBatchText(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+    const label = button.textContent;
+    button.textContent = 'Copiato';
+    setTimeout(() => {
+      button.textContent = label;
+    }, 2000);
+  } catch (error) {
+    setBatchProgress('Copia non riuscita: gli appunti non sono disponibili.');
+  }
+}
+
 function init() {
   const cardsContainer = document.getElementById('model-cards');
   for (const modelInfo of models.MODELS) {
@@ -383,6 +563,20 @@ function init() {
   document.getElementById('trainer-view').addEventListener('change', renderPrefixList);
   document.getElementById('b-model').addEventListener('change', updateGenerateButton);
   document.getElementById('b-generate').addEventListener('click', generateModeB);
+  document.getElementById('batch-run').addEventListener('click', runBatch);
+  document.getElementById('batch-stop').addEventListener('click', () => {
+    batchAbort = true;
+    setBatchProgress('Interruzione alla fine della generazione in corso…');
+  });
+  document.getElementById('batch-copy-md').addEventListener('click', (event) => {
+    copyBatchText(
+      batch.toMarkdown(lastBatchOutput.results, lastBatchOutput.summary, lastBatchOutput.meta),
+      event.target
+    );
+  });
+  document.getElementById('batch-copy-tsv').addEventListener('click', (event) => {
+    copyBatchText(batch.toTSV(lastBatchOutput.results), event.target);
+  });
   refreshModelSelect();
 
   const debugOutput = document.getElementById('debug-output');
