@@ -259,6 +259,46 @@ class ControlPytorchTests(unittest.TestCase):
         self.assertTrue(args.skip_pytorch)
 
 
+class FinalizeEmptyOutputTests(unittest.TestCase):
+    def write_candidates(self, tmp, entries):
+        path = Path(tmp) / "candidates.json"
+        path.write_text(json.dumps(entries), encoding="utf-8")
+        return path
+
+    def all_unreviewed(self):
+        ids = list(range(65, 129))
+        entry = pp.build_entry("c01", "control", None, None, ids, FakeTokenizer())
+        entry["reviewed"] = False
+        return [entry]
+
+    def test_finalize_with_no_reviewed_entries_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            candidates = self.write_candidates(tmp, self.all_unreviewed())
+            out = Path(tmp) / "prefixes.json"
+            with mock.patch.object(pp, "load_tokenizer", return_value=FakeTokenizer()):
+                code = pp.main([
+                    "--finalize",
+                    "--candidates", str(candidates),
+                    "--prefixes-out", str(out),
+                ])
+            self.assertEqual(code, 1)
+            self.assertFalse(out.exists())
+
+    def test_finalize_with_reviewed_entries_still_writes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            candidates = FIXTURES / "candidates_mix.json"
+            out = Path(tmp) / "prefixes.json"
+            with mock.patch.object(pp, "load_tokenizer", return_value=FakeTokenizer()):
+                code = pp.main([
+                    "--finalize",
+                    "--candidates", str(candidates),
+                    "--prefixes-out", str(out),
+                ])
+            self.assertEqual(code, 0)
+            written = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual([e["id"] for e in written], ["c01", "c03"])
+
+
 class CliTests(unittest.TestCase):
     def test_finalize_on_fixture_mix(self):
         with tempfile.TemporaryDirectory() as tmp:
