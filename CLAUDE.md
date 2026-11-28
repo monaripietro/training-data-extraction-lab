@@ -17,6 +17,10 @@ Questa sessione gira sul computer di Pietro e serve a **eseguire** prove e scrip
 4. Prima di ogni prova: `git checkout main && git pull`, poi `bash scripts/install-hooks.sh` (modifica solo `.git/hooks`, non file versionati), salvo diversa indicazione.
 5. **Riporta sempre** l'output completo della console (che non deve contenere testi del Pile), i comandi eseguiti, il sistema operativo e le versioni usate. Pietro lo inoltra al capo progetto.
 
+## Attività dalla dashboard
+
+Quando Pietro scrive «Esegui le attività `chi:locale` della dashboard», leggi le issue aperte con l'etichetta `chi:locale` (il repository è pubblico: `curl -s "https://api.github.com/repos/monaripietro/training-data-extraction-lab/issues?labels=chi:locale&state=open"`). Per ciascuna, esegui il prompt contenuto nel corpo dell'issue rispettando le regole sopra. Poi prepara per Pietro un commento con l'esito (solo numeri e id) da incollare nell'issue: non hai credenziali per scriverlo tu.
+
 ## Prove previste
 
 | Task | Cosa | Riferimento |
