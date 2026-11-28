@@ -168,3 +168,70 @@ footer {
 #trainer-tools {
   margin-top: 1rem;
 }
+
+.prefix-item-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  margin-top: 0;
+}
+
+.prefix-item-button .prefix-preview {
+  display: block;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.prefix-item-button.is-selected {
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.b-summary {
+  font-weight: bold;
+}
+
+.b-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.b-columns h3 {
+  font-size: 1rem;
+  margin: 0.5rem 0;
+}
+
+.token-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.token-list li {
+  padding: 0.1rem 0.25rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--border);
+}
+
+.token-list .token-different {
+  border-style: solid;
+  text-decoration: underline;
+  font-weight: bold;
+}
+
+@media (max-width: 40rem) {
+  .b-columns {
+    grid-template-columns: 1fr;
+  }
+}

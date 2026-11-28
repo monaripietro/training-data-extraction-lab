@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { decodePerToken, visibleWhitespace } from '../../site/lib/tokens.js';
+import { decodePerToken, visibleWhitespace, visibleTokenText } from '../../site/lib/tokens.js';
 
 test('each token text is the difference of the cumulative decodings', () => {
   const decode = (ids) => ids.map((id) => ['a', 'b', 'c'][id]).join('');
@@ -42,4 +42,11 @@ test('an empty id list decodes to no tokens', () => {
 test('visible whitespace marks spaces, tabs and newlines', () => {
   assert.equal(visibleWhitespace('a b\tc\nd'), 'a·b→c↵d');
   assert.equal(visibleWhitespace('a\r\nb'), 'a↵b');
+});
+
+test('visibleTokenText marks fragments and makes whitespace visible', () => {
+  assert.equal(visibleTokenText(''), '◌');
+  assert.equal(visibleTokenText(' '), '·');
+  assert.equal(visibleTokenText('a\n'), 'a↵');
+  assert.equal(visibleTokenText('abc'), 'abc');
 });
