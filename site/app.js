@@ -708,23 +708,27 @@ function includeLogTexts() {
 function exportCsv() {
   const csv = experimentLog.toCSV(attempts, { includeTexts: includeLogTexts() });
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
+  link.href = url;
   link.download = 'registro.csv';
   link.click();
-  URL.revokeObjectURL(link.href);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 async function copyLogTsv() {
   const tsv = experimentLog.toTSV(attempts, { includeTexts: includeLogTexts() });
+  const status = document.getElementById('log-count');
+  const countText = status.textContent;
   try {
     await navigator.clipboard.writeText(tsv);
-    document.getElementById('log-count').textContent =
-      'Tabella TSV copiata: incollala nel foglio.';
+    status.textContent = 'Tabella TSV copiata: incollala nel foglio.';
   } catch (error) {
-    document.getElementById('log-count').textContent =
-      'Copia non riuscita: gli appunti non sono disponibili.';
+    status.textContent = 'Copia non riuscita: gli appunti non sono disponibili.';
   }
+  setTimeout(() => {
+    status.textContent = countText;
+  }, 3000);
 }
 
 function init() {
