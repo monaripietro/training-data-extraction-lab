@@ -8,7 +8,7 @@ L'analisi iniziale della spec v0.2 (conflitti, ambiguità, rischi) è nella cron
 | Sprint | Stato | Issue |
 | --- | --- | --- |
 | 1 — protezioni dati, script dei prefissi, controlli, verifica di rete | **chiuso** il 28/11 | #24 e precedenti |
-| 2 — webapp: scheletro, modelli, prefissi, modalità B | **aperto** | #39: #43 ✔, #33 ✔, #46, #47, #34, #35 |
+| 2 — webapp: scheletro, modelli, prefissi, modalità B | **aperto** | #39: #43 ✔, #33 ✔, #46, #47, #54, #34, #35 |
 | 3 — modalità A e C, registro, accessibilità, README | in coda | #40: #36, #37, #38 (comprende #30) |
 
 ## Sprint 2 (#39)
@@ -39,9 +39,10 @@ Parallelismo: i moduli puri `compare.js` e `tokens.js` (#35) partono subito dopo
 | Attività | Quando | Come |
 | --- | --- | --- |
 | T0 nel browser e dalla rete del cliente | appena possibile | `netcheck.html`, risultato in `docs/test-report.md` |
-| T3 preparazione dei prefissi reali | ora | sessione locale, `CLAUDE.md` |
+| T3 preparazione dei prefissi reali | **fatta** il 28/11 (276 candidati, 72 % riprodotti) | sessione locale, `CLAUDE.md` |
+| T3 diagnosi del 72 % | dopo #54 | `--recheck` in tre configurazioni |
 | T3 revisione manuale e `--finalize` | dopo T3 | a mano su `data/candidates.json` |
-| T4 generazione di `site/controls.json` | ora | sessione locale, `prepare_prefixes.py --controls` |
+| T4 generazione di `site/controls.json` | **fatta** il 28/11 (6 controlli, nessun completamento esatto); da versionare | sessione locale, `prepare_prefixes.py --controls` |
 | Verifiche nel browser di ogni issue | a ogni PR | passi indicati nel resoconto di Vibe |
 | CA1–CA6 e RNF3 su tre portatili | fine sprint 2 e 3 | `docs/test-report.md` |
 | Conferma di D4 e D5 | prima dello sprint 3 | commento su #40 |

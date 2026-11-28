@@ -3,6 +3,7 @@
 
 export const STATE_LABELS = {
   idle: 'In attesa',
+  preparing: 'Preparazione…',
   loading: 'Download in corso',
   ready: 'Pronto',
   error: 'Errore',
@@ -55,5 +56,6 @@ export function setModelState(card, state, { progress = null, message = '' } = {
   }
   card.status.textContent = text;
   card.status.classList.toggle('is-error', state === 'error');
-  card.button.disabled = state === 'loading' || state === 'ready';
+  card.button.disabled =
+    state === 'loading' || state === 'preparing' || state === 'ready';
 }

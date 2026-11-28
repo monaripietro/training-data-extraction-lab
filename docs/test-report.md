@@ -34,6 +34,24 @@ Nessun testo del Pile in questo file: solo id, conteggi, quote e tempi (vedi `do
 
 **Se l'esito è negativo:** aprire il task del piano B prima di T5. Il piano B consiste nel servire i file del modello dal portatile del formatore o da un server interno, configurando `env.localModelPath` in Transformers.js.
 
+## T3 — Preparazione dei prefissi
+
+**Prima esecuzione (28/11, Mac, Python 3.12, versione di `main` precedente a #45):** 400 righe campionate (200 per split); scartate 124 (email 3, URL 32, sequenze di cifre 4, telefoni 41, meno di 16 token distinti 44); 276 candidati; **200 riprodotti da PyTorch (72 %)**, fp32, revisione `step143000`. Cache di Hugging Face cresciuta fino a 26 GB perché quella versione scaricava e convertiva tutti gli split (corretto con #45 e #50).
+
+**Lettura:** il 72 % è inferiore all'atteso (vicino al 100 %, per come il dataset definisce la memorizzazione). Non blocca T3: la revisione usa solo voci con `reproduced_pytorch: true`, cioè memorizzate dal modello del lab. Le cause possibili (precisione numerica, versione v0 dei modelli, differenze tra split) si distinguono con `--recheck` (#54). Fino ad allora il dato va presentato in aula come limite, non nascosto.
+
+| Configurazione `--recheck` | duped.70m | deduped.70m | Totale |
+| --- | --- | --- | --- |
+| fp32, `step143000` | | | 200/276 (72 %) |
+| float16, `step143000` | | | |
+| fp32, modelli `-v0` | | | |
+
+**Pulizia (28/11):** cancellata la cache del dataset (20 GB recuperati); restano in cache i modelli (5,9 GB), sufficienti per `--recheck`.
+
+## T4 — Controlli
+
+**Generazione (28/11, `prepare_prefixes.py --controls`, fp32, `step143000`):** 6 controlli (`c01`–`c06`), nessun avviso di completamento esatto. `reproduced_pytorch` è `false` per entrambi i modelli su tutte le voci; token iniziali coincidenti al massimo 1 su 32 (c01: 1/0, c06: 1/1, gli altri 0/0). CA2 è quindi soddisfatto in PyTorch; resta da verificare nel browser con #35.
+
 ## Sprint 2: prove nel browser
 
 | Data | Issue | Browser | Esito |
