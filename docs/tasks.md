@@ -8,13 +8,14 @@ L'analisi iniziale della spec v0.2 (conflitti, ambiguità, rischi) è nella cron
 | Sprint | Stato | Issue |
 | --- | --- | --- |
 | 1 — protezioni dati, script dei prefissi, controlli, verifica di rete | **chiuso** il 28/11 | #24 e precedenti |
-| 2 — webapp: scheletro, modelli, prefissi, modalità B | **aperto** | #39: #33, #34, #35 |
+| 2 — webapp: scheletro, modelli, prefissi, modalità B | **aperto** | #39: #43, #33, #34, #35 |
 | 3 — modalità A e C, registro, accessibilità, README | in coda | #40: #36, #37, #38 (comprende #30) |
 
 ## Sprint 2 (#39)
 
 | Ordine | Issue | Uscita | Criteri |
 | --- | --- | --- | --- |
+| 0 | #43 download dei soli due split del dataset (rallenta T3) | `prepare_prefixes.py` scarica solo `duped.70m` e `deduped.70m` | T2 |
 | 1 | #33 S2-A scheletro, test JS in CI, caricamento modelli | i due modelli si caricano nel browser; `node --test` in CI | RF1, CA5, CA9 |
 | 2 | #34 S2-B prefissi, controlli, vista del formatore | elenco unico e validato; controlli indistinguibili | RF0, RF5, RF7, CA7 |
 | 3 | #35 S2-C modalità B | confronto per ID con evidenziazione; prima misura di CA1 | RF3, CA1, CA2 |

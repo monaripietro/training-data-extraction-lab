@@ -5,6 +5,7 @@ Questa sessione gira sul computer di Pietro e serve a **eseguire** prove e scrip
 ## Regole
 
 1. **Non aprire, leggere, cercare o mostrare file in `data/`.** Contengono estratti del Pile che non devono lasciare questo computer (decisione D1), nemmeno verso il modello di questa sessione. Vale anche per `grep`, `cat`, `head`, `jq` e simili, e per l'output degli script che stampano quei testi. Puoi controllare solo che un file esista e quante voci contiene (es. `python -c "import json;print(len(json.load(open('data/candidates.json'))))"`).
+   La stessa regola vale per la **cache di Hugging Face** (`~/.cache/huggingface/datasets` e `~/.cache/huggingface/hub/datasets--EleutherAI--pythia-memorized-evals`), che contiene il dataset con gli estratti: puoi misurarne la dimensione (`du -sh`), non leggerne o elencarne il contenuto. Rimuovere l'ambiente conda non svuota la cache: è voluto, così una seconda esecuzione non riscarica tutto.
 2. **Non modificare file versionati e non fare commit né push**, salvo richiesta esplicita di Pietro. Se una prova fallisce per un difetto del codice, descrivi il problema: lo segnala il capo progetto a Vibe con un'issue.
 3. **Ambienti Python con conda**, uno per prova, da rimuovere alla fine anche se la prova fallisce:
    ```bash
