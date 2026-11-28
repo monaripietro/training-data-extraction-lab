@@ -1,15 +1,23 @@
 // Expected network hosts (RNF1, CA5):
-// - the page domain itself (static files: index.html, style.css, app.js, lib/, controls.json);
+// - the page domain itself (static files: index.html, style.css, app.js, lib/,
+//   controls.json);
 // - cdn.jsdelivr.net (Transformers.js 3.8.1 and its ONNX Runtime Web files);
 // - huggingface.co and *.hf.co (tokenizer and model files of Xenova/pythia-70m*).
 // The app performs no other request: no analytics, cookies, external fonts,
-// localStorage, sessionStorage or IndexedDB.
+// localStorage, sessionStorage or IndexedDB. prefixes.json is read locally
+// with FileReader and never leaves the browser.
 
 import * as models from './lib/models.js';
 import * as ui from './lib/ui.js';
+import { validateEntries, mergeAndShuffle } from './lib/prefixes.js';
+
+const SHUFFLE_SEED = 20261128;
 
 const loaded = new Map();
 const cards = new Map();
+let memorizedEntries = [];
+let controlEntries = [];
+let mergedPrefixes = [];
 
 function variantSelect() {
   return document.getElementById('variant');
@@ -30,7 +38,7 @@ async function loadOne(modelInfo) {
       dtype: currentVariant(),
       onProgress: (data) => {
         if (typeof data?.progress === 'number') {
-          ui.setModelState(card, 'loading', { progress: data.progress * 100 });
+          ui.setModelState(card, 'loading', { progress: data.progress });
         }
       },
     });
@@ -66,20 +74,111 @@ function firstLoaded() {
   return null;
 }
 
-async function controlPrefixIds() {
+function setPrefixStatus(text) {
+  document.getElementById('prefix-status').textContent = text;
+}
+
+function trainerViewActive() {
+  return document.getElementById('trainer-view').checked;
+}
+
+function trainerDetails(entry) {
+  const reproduced = entry.reproduced_pytorch === undefined
+    ? 'assente'
+    : JSON.stringify(entry.reproduced_pytorch);
+  const matching = entry.matching_tokens === undefined
+    ? 'assente'
+    : JSON.stringify(entry.matching_tokens);
+  return ui.el(
+    'dl',
+    { class: 'trainer-details' },
+    ui.el('div', {}, ui.el('dt', { text: 'Id originale' }), ui.el('dd', { text: entry.id })),
+    ui.el('div', {}, ui.el('dt', { text: 'Tipo' }), ui.el('dd', { text: entry.type })),
+    ui.el('div', {}, ui.el('dt', { text: 'Split' }), ui.el('dd', { text: entry.split ?? '—' })),
+    ui.el('div', {}, ui.el('dt', { text: 'Indice' }), ui.el('dd', { text: String(entry.index ?? '—') })),
+    ui.el('div', {}, ui.el('dt', { text: 'Note' }), ui.el('dd', { text: entry.notes || '—' })),
+    ui.el('div', {}, ui.el('dt', { text: 'Riproduzione PyTorch' }), ui.el('dd', { text: reproduced })),
+    ui.el('div', {}, ui.el('dt', { text: 'Token coincidenti' }), ui.el('dd', { text: matching }))
+  );
+}
+
+function renderPrefixList() {
+  const list = document.getElementById('prefix-list');
+  list.textContent = '';
+  for (const entry of mergedPrefixes) {
+    const item = ui.el(
+      'li',
+      { class: 'prefix-item' },
+      ui.el('strong', { text: entry.visibleId })
+    );
+    if (trainerViewActive()) {
+      item.append(trainerDetails(entry));
+    }
+    list.append(item);
+  }
+}
+
+function rebuildPrefixList() {
+  mergedPrefixes = mergeAndShuffle(memorizedEntries, controlEntries, SHUFFLE_SEED);
+  renderPrefixList();
+}
+
+function readPrefixesFile(file) {
+  if (!file) {
+    return;
+  }
+  setPrefixStatus(`Lettura di ${file.name}…`);
+  const reader = new FileReader();
+  reader.addEventListener('load', () => {
+    let parsed = null;
+    try {
+      parsed = JSON.parse(String(reader.result));
+    } catch (error) {
+      setPrefixStatus('Il file non è un JSON valido.');
+      return;
+    }
+    const { entries, errors } = validateEntries(parsed);
+    if (entries.length === 0) {
+      setPrefixStatus(`Nessuna voce valida: ${errors.join(' ')}`);
+      return;
+    }
+    memorizedEntries = entries;
+    setPrefixStatus(
+      errors.length === 0
+        ? `Caricate ${entries.length} voci da ${file.name}.`
+        : `Caricate ${entries.length} voci; scartate per errori: ${errors.join(' ')}`
+    );
+    rebuildPrefixList();
+  });
+  reader.addEventListener('error', () => {
+    setPrefixStatus('Impossibile leggere il file.');
+  });
+  reader.readAsText(file);
+}
+
+async function loadControls() {
   try {
     const response = await fetch('controls.json');
     if (!response.ok) {
-      return null;
+      throw new Error(`risposta ${response.status}`);
     }
-    const entries = await response.json();
-    if (Array.isArray(entries) && entries.length > 0) {
-      return entries[0].prefix_ids;
+    const { entries, errors } = validateEntries(await response.json());
+    if (entries.length === 0) {
+      setPrefixStatus(`Controlli non validi: ${errors.join(' ')}`);
+      return;
     }
+    controlEntries = entries;
+    setPrefixStatus(
+      errors.length === 0
+        ? `Controlli disponibili: ${entries.length}.`
+        : `Controlli caricati con avvisi: ${errors.join(' ')}`
+    );
   } catch (error) {
-    return null;
+    setPrefixStatus(
+      'Controlli non disponibili: manca controls.json. Senza il file, ' +
+        'carica prefixes.json per usare la lista dei prefissi.'
+    );
   }
-  return null;
 }
 
 async function runDebugGeneration(output) {
@@ -89,7 +188,7 @@ async function runDebugGeneration(output) {
     return;
   }
   output.textContent = 'Generazione in corso…';
-  let prefixIds = await controlPrefixIds();
+  let prefixIds = controlEntries[0]?.prefix_ids ?? null;
   if (!prefixIds) {
     prefixIds = Array.from({ length: 32 }, (_, index) => index + 1);
     output.textContent = 'Controlli non disponibili: uso un prefisso sintetico di 32 ID.\n';
@@ -129,10 +228,31 @@ function init() {
     }
   });
   document.getElementById('load-both').addEventListener('click', loadAll);
+
+  document.getElementById('prefix-file').addEventListener('change', (event) => {
+    readPrefixesFile(event.target.files[0]);
+  });
+  const dropzone = document.getElementById('prefix-dropzone');
+  dropzone.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    dropzone.classList.add('is-dragging');
+  });
+  dropzone.addEventListener('dragleave', () => {
+    dropzone.classList.remove('is-dragging');
+  });
+  dropzone.addEventListener('drop', (event) => {
+    event.preventDefault();
+    dropzone.classList.remove('is-dragging');
+    readPrefixesFile(event.dataTransfer.files[0]);
+  });
+  document.getElementById('trainer-view').addEventListener('change', renderPrefixList);
+
   const debugOutput = document.getElementById('debug-output');
   document.getElementById('debug-generate').addEventListener('click', () => {
     runDebugGeneration(debugOutput);
   });
+
+  loadControls().then(rebuildPrefixList);
 }
 
 init();
