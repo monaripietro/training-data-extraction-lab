@@ -13,7 +13,7 @@ Questa sessione gira sul computer di Pietro e serve a **eseguire** prove e scrip
    conda run -n <nome> python <script> ...
    conda env remove -y -n <nome>
    ```
-4. Prima di ogni prova: `git checkout main && git pull`, salvo diversa indicazione.
+4. Prima di ogni prova: `git checkout main && git pull`, poi `bash scripts/install-hooks.sh` (modifica solo `.git/hooks`, non file versionati), salvo diversa indicazione.
 5. **Riporta sempre** l'output completo della console (che non deve contenere testi del Pile), i comandi eseguiti, il sistema operativo e le versioni usate. Pietro lo inoltra al capo progetto.
 
 ## Prove previste
