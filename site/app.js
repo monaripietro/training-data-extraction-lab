@@ -38,7 +38,7 @@ async function loadOne(modelInfo) {
       dtype: currentVariant(),
       onProgress: (data) => {
         if (typeof data?.progress === 'number') {
-          ui.setModelState(card, 'loading', { progress: data.progress });
+          ui.setModelState(card, 'loading', { progress: data.progress * 100 });
         }
       },
     });
