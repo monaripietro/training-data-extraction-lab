@@ -398,6 +398,28 @@ class SplitFileSelectionTests(unittest.TestCase):
                 ["duped.70m-extra/train-00000-of-00001.parquet"], "duped.70m"
             )
 
+    def test_shard_names_are_selected(self):
+        paths = [
+            "data/duped.70m-00000-of-00002.parquet",
+            "data/duped.70m-00001-of-00002.parquet",
+        ]
+        self.assertEqual(pp.select_split_files(paths, "duped.70m"), paths)
+
+    def test_shard_names_stay_split_specific(self):
+        paths = ["data/deduped.70m-00000-of-00001.parquet"]
+        self.assertEqual(pp.select_split_files(paths, "deduped.70m"), paths)
+        with self.assertRaises(pp.PreparazioneError):
+            pp.select_split_files(paths, "duped.70m")
+
+    def test_non_shard_suffixes_are_excluded(self):
+        for path in ["data/duped.70m-extra.parquet", "data/duped.70m-v2.parquet"]:
+            with self.assertRaises(pp.PreparazioneError):
+                pp.select_split_files([path], "duped.70m")
+
+    def test_split_as_folder_is_selected(self):
+        path = "duped.70m/train-00000-of-00001.parquet"
+        self.assertEqual(pp.select_split_files([path], "duped.70m"), [path])
+
     def test_non_data_files_are_ignored(self):
         with self.assertRaises(pp.PreparazioneError):
             pp.select_split_files(

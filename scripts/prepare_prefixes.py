@@ -254,7 +254,10 @@ EXPECTED_ROW_COUNTS = {
 
 
 def split_name_in(path, split):
-    pattern = rf"(?<![A-Za-z0-9]){re.escape(split)}(?![A-Za-z0-9-])"
+    pattern = (
+        rf"(?<![A-Za-z0-9]){re.escape(split)}"
+        r"(?:-\d+-of-\d+)?(?![A-Za-z0-9-])"
+    )
     return re.search(pattern, path) is not None
 
 
