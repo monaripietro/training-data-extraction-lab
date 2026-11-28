@@ -7,6 +7,7 @@
 
 import * as models from './lib/models.js';
 import * as ui from './lib/ui.js';
+import { createProgressTracker, formatBytes } from './lib/progress.js';
 
 const loaded = new Map();
 const cards = new Map();
@@ -25,13 +26,20 @@ async function loadOne(modelInfo) {
     return;
   }
   ui.setModelState(card, 'loading');
+  const tracker = createProgressTracker();
   try {
     const instance = await models.loadModel(modelInfo.repoId, {
       dtype: currentVariant(),
       onProgress: (data) => {
-        if (typeof data?.progress === 'number') {
-          ui.setModelState(card, 'loading', { progress: data.progress * 100 });
-        }
+        const progress = tracker.update(data);
+        const downloaded = formatBytes(progress.loadedBytes);
+        const size = progress.totalBytes > 0
+          ? `${downloaded} di ${formatBytes(progress.totalBytes)}`
+          : `${downloaded} scaricati`;
+        ui.setModelState(card, 'loading', {
+          progress: progress.percent,
+          message: size,
+        });
       },
     });
     if (instance.dtype !== currentVariant()) {
@@ -39,6 +47,7 @@ async function loadOne(modelInfo) {
       ui.setModelState(card, 'idle', { message: 'variante cambiata, ricarica il modello' });
       return;
     }
+    tracker.finish();
     loaded.set(modelInfo.key, instance);
     ui.setModelState(card, 'ready', { message: `variante ${instance.dtype}` });
   } catch (error) {
