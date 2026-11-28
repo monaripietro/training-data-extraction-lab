@@ -41,5 +41,35 @@ expect 0 "--tree non vede file rimossi" bash scripts/check_no_pile.sh --tree
 expect 1 "--range vede file aggiunti e poi rimossi" bash scripts/check_no_pile.sh --range "$base..HEAD"
 reset_stage
 
+# Pre-push hook (issue #18): extracts must be blocked before leaving the computer.
+git init -q --bare "$work/remote.git"
+git remote add origin "$work/remote.git"
+bash "$src/scripts/install-hooks.sh" >/dev/null
+sum_before="$(sha256sum "$(git rev-parse --git-dir)/hooks/pre-push" | cut -d' ' -f1)"
+bash "$src/scripts/install-hooks.sh" >/dev/null
+sum_after="$(sha256sum "$(git rev-parse --git-dir)/hooks/pre-push" | cut -d' ' -f1)"
+if [[ "$sum_before" == "$sum_after" && -x "$(git rev-parse --git-dir)/hooks/pre-commit" ]]; then
+  echo "ok   - install-hooks.sh eseguito due volte non duplica gli hook"
+else
+  echo "FAIL - install-hooks.sh eseguito due volte non duplica gli hook"; failures=$((failures+1))
+fi
+
+expect 0 "push pulito accettato" git push -q origin main
+mkdir -p data
+echo '{}' > data/x.json
+git add -f data/x.json
+git commit -q --no-verify -m estratto
+expect 1 "push di un commit con data/x.json creato con --no-verify rifiutato" git push origin main
+git reset -q --hard HEAD~1
+expect 0 "push accettato dopo la correzione locale" git push -q origin main
+
+git checkout -qb feature
+mkdir -p data
+echo '{}' > data/z.json
+git add -f data/z.json
+git commit -q --no-verify -m estratto
+expect 1 "push di un branch nuovo con un estratto rifiutato" git push origin feature
+git checkout -q main
+
 echo "fallimenti: $failures"
 exit $(( failures > 0 ))
