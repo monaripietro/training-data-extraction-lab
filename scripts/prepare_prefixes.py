@@ -159,13 +159,23 @@ def generate_continuations(model, entries):
 
 
 def check_reproduction_quota(entries):
+    for split in MEMORIZED_SPLITS:
+        split_entries = [e for e in entries if e.get("split") == split]
+        if not split_entries:
+            continue
+        reproduced = sum(1 for e in split_entries if e.get("reproduced_pytorch"))
+        print(
+            f"{split}: {reproduced}/{len(split_entries)} riprodotti "
+            f"({reproduced / len(split_entries):.0%})"
+        )
     total = len(entries)
     reproduced = sum(1 for e in entries if e.get("reproduced_pytorch"))
+    if total:
+        print(f"totale: {reproduced}/{total} riprodotti ({reproduced / total:.0%})")
     if total and reproduced / total < REPRODUCTION_THRESHOLD:
         print(
-            f"Attenzione: solo {reproduced} candidati su {total} "
-            f"({reproduced / total:.0%}) sono riprodotti da PyTorch: la soglia "
-            f"è del {REPRODUCTION_THRESHOLD:.0%}."
+            f"quota inferiore al {REPRODUCTION_THRESHOLD:.0%}: vedi "
+            "docs/test-report.md, sezione T3, prima di usare questi numeri in aula"
         )
     return reproduced, total
 
@@ -332,17 +342,58 @@ def run_preparation(args):
         split_entries = [e for e in entries if e["split"] == split]
         if not split_entries:
             continue
-        from transformers import AutoModelForCausalLM
-
-        print(f"Genero le continuazioni con {MODEL_BY_SPLIT[split]}…")
-        model = AutoModelForCausalLM.from_pretrained(
-            MODEL_BY_SPLIT[split], revision=REVISION_STEP, torch_dtype="float32"
-        )
-        model.eval()
+        repo = model_repo_for(split, args.model_suffix)
+        print(f"Genero le continuazioni con {repo}…")
+        model = load_causal_model(repo, args.model_revision, args.torch_dtype)
         generate_continuations(model, split_entries)
     check_reproduction_quota(entries)
     write_json(args.out, entries)
     print(f"Scritte {len(entries)} voci in {args.out}")
+
+
+def check_recheck_entry(entry):
+    if not isinstance(entry, dict):
+        raise PreparazioneError("una voce del file non è un oggetto valido")
+    entry_id = entry.get("id", "(senza id)")
+    if entry.get("split") not in MODEL_BY_SPLIT:
+        raise PreparazioneError(
+            f"la voce {entry_id} ha uno split non riconosciuto: "
+            f"{entry.get('split')!r}"
+        )
+    for field in ("prefix_ids", "expected_ids"):
+        ids = entry.get(field)
+        if (
+            not isinstance(ids, list)
+            or len(ids) != TOTAL_TOKENS // 2
+            or not all(isinstance(token, int) for token in ids)
+        ):
+            raise PreparazioneError(
+                f"la voce {entry_id} non ha {TOTAL_TOKENS // 2} interi in {field}"
+            )
+
+
+def run_recheck(args):
+    entries = read_json(args.recheck)
+    if not isinstance(entries, list):
+        raise PreparazioneError(
+            f"il file {args.recheck} non contiene un elenco di voci"
+        )
+    for entry in entries:
+        check_recheck_entry(entry)
+    for split in MEMORIZED_SPLITS:
+        split_entries = [e for e in entries if e.get("split") == split]
+        if not split_entries:
+            continue
+        repo = model_repo_for(split, args.model_suffix)
+        print(
+            f"Rigenero le continuazioni di {len(split_entries)} voci con {repo}…"
+        )
+        model = load_causal_model(repo, args.model_revision, args.torch_dtype)
+        generate_continuations(model, split_entries)
+    check_reproduction_quota(entries)
+    if args.write:
+        write_json(args.recheck, entries)
+        print(f"Riscritto {args.recheck} con reproduced_pytorch aggiornato")
 
 
 def run_finalize(args):
@@ -370,12 +421,16 @@ CONTROL_MODEL_REPOS = {
 }
 
 
-def load_causal_model(repo_id):
+def model_repo_for(split, suffix=""):
+    return MODEL_BY_SPLIT[split] + suffix
+
+
+def load_causal_model(repo_id, revision=REVISION_STEP, torch_dtype="float32"):
     try:
         from transformers import AutoModelForCausalLM
 
         model = AutoModelForCausalLM.from_pretrained(
-            repo_id, revision=REVISION_STEP, torch_dtype="float32"
+            repo_id, revision=revision, torch_dtype=torch_dtype
         )
         model.eval()
         model.generation_config.eos_token_id = None
@@ -383,7 +438,7 @@ def load_causal_model(repo_id):
     except Exception as exc:
         raise PreparazioneError(
             f"impossibile caricare il modello {repo_id} alla revisione "
-            f"{REVISION_STEP}: verifica la connessione a Hugging Face ({exc})"
+            f"{revision}: verifica la connessione a Hugging Face ({exc})"
         )
 
 
@@ -464,13 +519,45 @@ def parse_args(argv):
         action="store_true",
         help="genera i controlli senza scaricare i modelli PyTorch",
     )
+    parser.add_argument(
+        "--recheck",
+        help="ricontrolla un file di candidati già prodotto, senza scaricare il dataset",
+    )
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="con --recheck, riscrive il file con reproduced_pytorch aggiornato",
+    )
+    parser.add_argument(
+        "--torch-dtype",
+        choices=("float32", "float16", "bfloat16"),
+        default="float32",
+        help="precisione dei modelli PyTorch",
+    )
+    parser.add_argument(
+        "--model-revision",
+        default=REVISION_STEP,
+        help="revisione dei modelli PyTorch (predefinita: step143000)",
+    )
+    parser.add_argument(
+        "--model-suffix",
+        default="",
+        help=(
+            "suffisso aggiunto ai repository dei modelli (per esempio -v0 "
+            "per EleutherAI/pythia-70m-v0 e EleutherAI/pythia-70m-deduped-v0); "
+            "con -v0 la revisione predefinita va verificata sul repository "
+            "(potrebbe essere main)"
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main(argv=None):
     args = parse_args(argv)
     try:
-        if args.finalize:
+        if args.recheck:
+            run_recheck(args)
+        elif args.finalize:
             run_finalize(args)
         elif args.controls:
             run_controls(args)
