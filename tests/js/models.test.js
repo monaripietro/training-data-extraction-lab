@@ -8,6 +8,7 @@ import {
   generationParams,
   buildGenerateArgs,
   generateFromIds,
+  tokenizeText,
   TRANSFORMERS_VERSION,
   TRANSFORMERS_URL,
 } from '../../site/lib/models.js';
@@ -108,4 +109,12 @@ test('generateFromIds rejects an output that does not echo the prefix', async ()
     generateFromIds({ model: fakeModel(shifted) }, PREFIX, fakeModule),
     /prefisso/
   );
+});
+
+test('tokenizeText turns free text into plain id numbers', async () => {
+  const fakeLoaded = {
+    tokenizer: async (text) => ({ input_ids: { data: [5n, 6n, 7n] } }),
+  };
+  const ids = await tokenizeText(fakeLoaded, 'testo libero');
+  assert.deepEqual(ids, [5, 6, 7]);
 });

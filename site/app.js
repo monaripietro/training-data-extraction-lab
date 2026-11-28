@@ -14,6 +14,7 @@ import { exactMatch, commonPrefixLength, segments } from './lib/compare.js';
 import { decodePerToken, visibleWhitespace, visibleTokenText } from './lib/tokens.js';
 import { createProgressTracker, formatBytes } from './lib/progress.js';
 import * as batch from './lib/batch.js';
+import * as experimentLog from './lib/log.js';
 
 const SHUFFLE_SEED = 20261128;
 
@@ -23,6 +24,7 @@ let memorizedEntries = [];
 let controlEntries = [];
 let mergedPrefixes = [];
 let selectedPrefix = null;
+const attempts = [];
 
 function variantSelect() {
   return document.getElementById('variant');
@@ -92,8 +94,8 @@ function setModeBStatus(text) {
   document.getElementById('b-status').textContent = text;
 }
 
-function refreshModelSelect() {
-  const select = document.getElementById('b-model');
+function populateModelSelect(selectId) {
+  const select = document.getElementById(selectId);
   const previous = select.value;
   select.textContent = '';
   if (loaded.size === 0) {
@@ -108,7 +110,13 @@ function refreshModelSelect() {
   if (previous && loaded.has(previous)) {
     select.value = previous;
   }
+}
+
+function refreshModelSelect() {
+  populateModelSelect('b-model');
+  populateModelSelect('a-model');
   updateGenerateButton();
+  updateCompareButton();
 }
 
 function updateGenerateButton() {
@@ -172,6 +180,17 @@ async function generateModeB() {
   try {
     const generatedIds = await models.generateFromIds(instance, selectedPrefix.prefix_ids);
     renderModeBResult(selectedPrefix, generatedIds, instance);
+    recordAttempt({
+      time: new Date().toISOString(),
+      mode: 'B',
+      model: batch.modelLabel(modelKey),
+      variant: currentVariant(),
+      id: selectedPrefix.id,
+      exactMatch: exactMatch(selectedPrefix.expected_ids, generatedIds),
+      commonTokens: commonPrefixLength(selectedPrefix.expected_ids, generatedIds),
+      prompt: selectedPrefix.prefix_text,
+      output: generatedIds.join(' '),
+    });
   } catch (error) {
     setModeBStatus(`Generazione non riuscita: ${error.message}`);
   }
@@ -243,7 +262,7 @@ function renderPrefixList() {
     button.addEventListener('click', () => {
       selectedPrefix = entry;
       renderPrefixList();
-      updateGenerateButton();
+      updateModeControls();
       setModeBStatus(
         'Prefisso selezionato: premi «Genera» per creare la continuazione.'
       );
@@ -266,7 +285,7 @@ function rebuildPrefixList() {
     document.getElementById('b-result').hidden = true;
   }
   renderPrefixList();
-  updateGenerateButton();
+  updateModeControls();
 }
 
 function readPrefixesFile(file) {
@@ -352,6 +371,160 @@ async function runDebugGeneration(output) {
 let batchRunning = false;
 let batchAbort = false;
 let lastBatchOutput = { results: [], summary: null, meta: {} };
+let modeACompareBusy = false;
+
+function setModeAStatus(text) {
+  document.getElementById('a-status').textContent = text;
+}
+
+function setModeCStatus(text) {
+  document.getElementById('c-status').textContent = text;
+}
+
+function updateModeAButton() {
+  const modelKey = document.getElementById('a-model').value;
+  const hasText = document.getElementById('a-text').value.trim() !== '';
+  document.getElementById('a-generate').disabled =
+    modeACompareBusy || !hasText || !loaded.has(modelKey);
+}
+
+function updateCompareButton() {
+  document.getElementById('c-compare').disabled =
+    modeACompareBusy || selectedPrefix === null;
+}
+
+function updateModeControls() {
+  updateGenerateButton();
+  updateModeAButton();
+  updateCompareButton();
+}
+
+function setActiveMode(mode) {
+  for (const tab of document.querySelectorAll('.mode-tab')) {
+    const active = tab.dataset.mode === mode;
+    tab.setAttribute('aria-pressed', String(active));
+    tab.classList.toggle('is-active', active);
+  }
+  document.getElementById('mode-a-section').hidden = mode !== 'a';
+  document.getElementById('mode-b-section').hidden = mode !== 'b';
+  document.getElementById('mode-c-section').hidden = mode !== 'c';
+}
+
+async function generateModeA() {
+  const modelKey = document.getElementById('a-model').value;
+  const instance = loaded.get(modelKey);
+  const text = document.getElementById('a-text').value;
+  if (!instance) {
+    setModeAStatus('Carica prima un modello.');
+    return;
+  }
+  if (text.trim() === '') {
+    setModeAStatus('Scrivi prima un testo di partenza.');
+    return;
+  }
+  modeACompareBusy = true;
+  updateModeControls();
+  setModeAStatus('Generazione in corso…');
+  try {
+    const prefixIds = await models.tokenizeText(instance, text);
+    const generatedIds = await models.generateFromIds(instance, prefixIds);
+    const generatedTexts = continuationTexts(instance, prefixIds, generatedIds);
+    const output = generatedTexts
+      .map((tokenText) => visibleTokenText(tokenText))
+      .join('');
+    document.getElementById('a-output').textContent = output;
+    document.getElementById('a-result').hidden = false;
+    recordAttempt({
+      time: new Date().toISOString(),
+      mode: 'A',
+      model: batch.modelLabel(modelKey),
+      variant: currentVariant(),
+      id: '',
+      exactMatch: null,
+      commonTokens: null,
+      prompt: text,
+      output,
+    });
+    setModeAStatus(
+      `Generati ${generatedIds.length} token oltre al testo di partenza.`
+    );
+  } catch (error) {
+    setModeAStatus(`Generazione non riuscita: ${error.message}`);
+  }
+  modeACompareBusy = false;
+  updateModeControls();
+}
+
+function renderModeCSide(prefix, generatedIds, instance, suffix) {
+  const expectedTexts = continuationTexts(instance, prefix.prefix_ids, prefix.expected_ids);
+  const generatedTexts = continuationTexts(instance, prefix.prefix_ids, generatedIds);
+  const segmentList = segments(prefix.expected_ids, generatedIds);
+  const equalFlags = segmentList.map((segment) => segment.equal);
+  renderTokenList(document.getElementById(`c-${suffix}-expected`), expectedTexts, equalFlags);
+  renderTokenList(document.getElementById(`c-${suffix}-generated`), generatedTexts, equalFlags);
+  const isExact = exactMatch(prefix.expected_ids, generatedIds);
+  const common = commonPrefixLength(prefix.expected_ids, generatedIds);
+  document.getElementById(`c-${suffix}-summary`).textContent =
+    `Corrispondenza esatta: ${isExact ? 'sì' : 'no'} · ` +
+    `Token iniziali coincidenti: ${common}/32`;
+}
+
+async function generateModeC() {
+  if (selectedPrefix === null) {
+    setModeCStatus('Scegli prima un prefisso dalla modalità B.');
+    return;
+  }
+  modeACompareBusy = true;
+  updateModeControls();
+  document.getElementById('c-result').hidden = true;
+  setModeCStatus(
+    'Confronto in corso: i modelli necessari vengono caricati e liberati in sequenza…'
+  );
+  try {
+    for (const modelInfo of models.MODELS) {
+      const wasLoaded =
+        loaded.has(modelInfo.key) && loaded.get(modelInfo.key).dtype === currentVariant();
+      let instance = loaded.get(modelInfo.key);
+      if (!wasLoaded) {
+        if (instance) {
+          models.dispose(instance);
+          loaded.delete(modelInfo.key);
+        }
+        setModeCStatus(`Carico ${modelInfo.label}…`);
+        await performLoad(modelInfo);
+        instance = loaded.get(modelInfo.key);
+        if (!instance) {
+          throw new Error(`impossibile caricare ${modelInfo.label}`);
+        }
+      }
+      setModeCStatus(`Genero con ${modelInfo.label}…`);
+      const generatedIds = await models.generateFromIds(instance, selectedPrefix.prefix_ids);
+      renderModeCSide(selectedPrefix, generatedIds, instance, modelInfo.key);
+      recordAttempt({
+        time: new Date().toISOString(),
+        mode: 'C',
+        model: batch.modelLabel(modelInfo.key),
+        variant: currentVariant(),
+        id: selectedPrefix.id,
+        exactMatch: exactMatch(selectedPrefix.expected_ids, generatedIds),
+        commonTokens: commonPrefixLength(selectedPrefix.expected_ids, generatedIds),
+        prompt: selectedPrefix.prefix_text,
+        output: generatedIds.join(' '),
+      });
+      if (!wasLoaded) {
+        models.dispose(instance);
+        loaded.delete(modelInfo.key);
+      }
+    }
+    document.getElementById('c-result').hidden = false;
+    setModeCStatus('Confronto completato.');
+  } catch (error) {
+    setModeCStatus(`Confronto non riuscito: ${error.message}`);
+  }
+  refreshModelSelect();
+  modeACompareBusy = false;
+  updateModeControls();
+}
 
 function setBatchProgress(text) {
   document.getElementById('batch-progress').textContent = text;
@@ -524,6 +697,47 @@ async function copyBatchText(text, button) {
   }
 }
 
+
+function recordAttempt(attempt) {
+  experimentLog.addAttempt(attempts, attempt);
+  document.getElementById('log-count').textContent =
+    attempts.length === 1
+      ? 'Registrato 1 tentativo.'
+      : `Registrati ${attempts.length} tentativi.`;
+  document.getElementById('log-csv').disabled = false;
+  document.getElementById('log-copy-tsv').disabled = false;
+}
+
+function includeLogTexts() {
+  return document.getElementById('log-texts').checked;
+}
+
+function exportCsv() {
+  const csv = experimentLog.toCSV(attempts, { includeTexts: includeLogTexts() });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'registro.csv';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+async function copyLogTsv() {
+  const tsv = experimentLog.toTSV(attempts, { includeTexts: includeLogTexts() });
+  const status = document.getElementById('log-count');
+  const countText = status.textContent;
+  try {
+    await navigator.clipboard.writeText(tsv);
+    status.textContent = 'Tabella TSV copiata: incollala nel foglio.';
+  } catch (error) {
+    status.textContent = 'Copia non riuscita: gli appunti non sono disponibili.';
+  }
+  setTimeout(() => {
+    status.textContent = countText;
+  }, 3000);
+}
+
 function init() {
   const cardsContainer = document.getElementById('model-cards');
   for (const modelInfo of models.MODELS) {
@@ -574,6 +788,22 @@ function init() {
   setTrainerToolsVisibility();
   document.getElementById('b-model').addEventListener('change', updateGenerateButton);
   document.getElementById('b-generate').addEventListener('click', generateModeB);
+  for (const tab of document.querySelectorAll('.mode-tab')) {
+    tab.addEventListener('click', () => setActiveMode(tab.dataset.mode));
+  }
+  document.getElementById('a-model').addEventListener('change', updateModeAButton);
+  document.getElementById('a-text').addEventListener('input', updateModeAButton);
+  document.getElementById('a-generate').addEventListener('click', generateModeA);
+  document.getElementById('c-compare').addEventListener('click', generateModeC);
+  document.getElementById('log-csv').addEventListener('click', exportCsv);
+  document.getElementById('log-copy-tsv').addEventListener('click', copyLogTsv);
+  window.addEventListener('beforeunload', (event) => {
+    if (attempts.length > 0) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  });
+  setActiveMode('b');
   document.getElementById('batch-run').addEventListener('click', runBatch);
   document.getElementById('batch-stop').addEventListener('click', () => {
     batchAbort = true;
