@@ -192,6 +192,12 @@ function setPrefixStatus(text) {
   document.getElementById('prefix-status').textContent = text;
 }
 
+function setTrainerToolsVisibility() {
+  document.getElementById('trainer-tools').hidden = ui.trainerToolsHidden(
+    trainerViewActive()
+  );
+}
+
 function trainerViewActive() {
   return document.getElementById('trainer-view').checked;
 }
@@ -363,6 +369,7 @@ function setBatchControls(running) {
   document.getElementById('batch-run').disabled = running;
   document.getElementById('batch-both').disabled = running;
   document.getElementById('batch-stop').disabled = !running;
+  document.getElementById('trainer-view').disabled = running;
 }
 
 async function ensureModelForBatch(modelInfo) {
@@ -560,7 +567,11 @@ function init() {
     dropzone.classList.remove('is-dragging');
     readPrefixesFile(event.dataTransfer.files[0]);
   });
-  document.getElementById('trainer-view').addEventListener('change', renderPrefixList);
+  document.getElementById('trainer-view').addEventListener('change', () => {
+    setTrainerToolsVisibility();
+    renderPrefixList();
+  });
+  setTrainerToolsVisibility();
   document.getElementById('b-model').addEventListener('change', updateGenerateButton);
   document.getElementById('b-generate').addEventListener('click', generateModeB);
   document.getElementById('batch-run').addEventListener('click', runBatch);

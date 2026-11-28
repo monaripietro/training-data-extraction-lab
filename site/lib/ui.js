@@ -59,3 +59,7 @@ export function setModelState(card, state, { progress = null, message = '' } = {
   card.button.disabled =
     state === 'loading' || state === 'preparing' || state === 'ready';
 }
+
+export function trainerToolsHidden(trainerViewActive) {
+  return !trainerViewActive;
+}
