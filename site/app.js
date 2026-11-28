@@ -9,6 +9,7 @@ import * as models from './lib/models.js';
 import * as ui from './lib/ui.js';
 import { createProgressTracker, formatBytes } from './lib/progress.js';
 
+
 const loaded = new Map();
 const cards = new Map();
 
@@ -25,7 +26,7 @@ async function loadOne(modelInfo) {
   if (loaded.has(modelInfo.key) || card.button.disabled) {
     return;
   }
-  ui.setModelState(card, 'loading');
+  ui.setModelState(card, 'preparing', { message: 'nessun dato scaricato' });
   const tracker = createProgressTracker();
   try {
     const instance = await models.loadModel(modelInfo.repoId, {
@@ -33,13 +34,18 @@ async function loadOne(modelInfo) {
       onProgress: (data) => {
         const progress = tracker.update(data);
         const downloaded = formatBytes(progress.loadedBytes);
-        const size = progress.totalBytes > 0
-          ? `${downloaded} di ${formatBytes(progress.totalBytes)}`
-          : `${downloaded} scaricati`;
-        ui.setModelState(card, 'loading', {
-          progress: progress.percent,
-          message: size,
-        });
+        if (progress.percent === null) {
+          ui.setModelState(card, 'preparing', { message: `${downloaded} scaricati` });
+        } else {
+          const modelDownloaded = formatBytes(progress.modelLoadedBytes);
+          const modelSize = progress.modelTotalBytes > 0
+            ? `${modelDownloaded} di ${formatBytes(progress.modelTotalBytes)}`
+            : modelDownloaded;
+          ui.setModelState(card, 'loading', {
+            progress: progress.percent,
+            message: modelSize,
+          });
+        }
       },
     });
     if (instance.dtype !== currentVariant()) {

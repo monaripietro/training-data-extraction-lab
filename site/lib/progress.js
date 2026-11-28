@@ -8,16 +8,24 @@
 // where `progress` is already a 0-100 percentage and `loaded`/`total` are
 // byte counts (`total` can be 0 when the server sends no Content-Length).
 //
-// The tracker keeps `loaded` and `total` per file (keyed by `file`) and
-// reports the overall percentage as sum(loaded) / sum(total) * 100, rounded
-// and clamped to [0, 100]. The reported value never decreases: small files
-// that complete before the big ONNX file would otherwise pull it back down.
-// While the load is not finished the value is capped at 99; the 100 % state
-// is reached only when the caller confirms that from_pretrained has resolved.
-// When the current file has no `total`, only its bytes are counted and the
-// cap at 99 applies.
+// The percentage is computed only over the model files (`file` ending in
+// `.onnx` or `.onnx_data`): the tokenizer and configuration files are
+// negligible compared to the ONNX weights, and counting them would push the
+// percentage to its maximum before the real download even starts. Before the
+// first `progress` event of a model file the percentage is null and the
+// caller shows a preparation state with the downloaded bytes. Inside the
+// model phase the reported value never decreases and stays below 100 until
+// the caller confirms that from_pretrained has resolved (`finish()`), which
+// also covers the fully cached case where no progress event arrives at all.
 
 export const CAP_WHEN_UNFINISHED = 99;
+
+export function isModelFile(file) {
+  return (
+    typeof file === 'string' &&
+    (file.endsWith('.onnx') || file.endsWith('.onnx_data'))
+  );
+}
 
 export function createProgressTracker() {
   const files = new Map();
@@ -39,20 +47,39 @@ export function createProgressTracker() {
     return { loaded, total, hasUnknownTotal };
   }
 
+  function modelBytes() {
+    let loaded = 0;
+    let total = 0;
+    let started = false;
+    for (const entry of files.values()) {
+      if (!entry.isModel) {
+        continue;
+      }
+      started = true;
+      loaded += entry.loaded;
+      total += entry.total;
+    }
+    return { loaded, total, started };
+  }
+
   function snapshot() {
     const { loaded, total, hasUnknownTotal } = bytes();
-    let percent;
+    const model = modelBytes();
+    let percent = null;
     if (finished) {
       percent = 100;
-    } else {
-      percent = total > 0 ? Math.min((loaded / total) * 100, CAP_WHEN_UNFINISHED) : 0;
+    } else if (model.started && model.total > 0) {
+      percent = Math.min((model.loaded / model.total) * 100, CAP_WHEN_UNFINISHED);
       percent = Math.max(Math.min(Math.round(percent), CAP_WHEN_UNFINISHED), floor);
       floor = percent;
     }
     return {
       percent,
+      modelStarted: model.started,
       loadedBytes: loaded,
       totalBytes: total,
+      modelLoadedBytes: model.loaded,
+      modelTotalBytes: model.total,
       loadedMB: Math.round(loaded / 1_000_000),
       totalMB: total > 0 ? Math.round(total / 1_000_000) : 0,
       hasUnknownTotal,
@@ -62,7 +89,11 @@ export function createProgressTracker() {
 
   function update(event) {
     if (event?.status === 'progress' && typeof event.file === 'string') {
-      const entry = files.get(event.file) ?? { loaded: 0, total: 0 };
+      const entry = files.get(event.file) ?? {
+        loaded: 0,
+        total: 0,
+        isModel: isModelFile(event.file),
+      };
       if (typeof event.loaded === 'number') {
         entry.loaded = event.loaded;
       }
