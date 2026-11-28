@@ -4,7 +4,7 @@ Nessun testo del Pile in questo file: solo id, conteggi, quote e tempi (vedi `do
 
 ## T0 — Fattibilità della rete
 
-**Strumento:** `site/netcheck.html`. Pubblicato su GitHub Pages dopo il merge di T1, oppure da aprire in locale facendo doppio clic sul file scaricato. Controlla:
+**Strumento:** `site/netcheck.html`, pubblicato su <https://trainingdataextraction.monaripietro.it/netcheck.html>, oppure da aprire in locale facendo doppio clic sul file scaricato. Controlla:
 - il browser: WebAssembly, isolamento cross-origin (thread), core, memoria, Cache API, spazio disponibile;
 - `huggingface.co`: elenco dei file dei due modelli, `config.json`, primi 1024 byte del file ONNX più piccolo, con l'host che lo serve dopo il reindirizzamento;
 - `cdn.jsdelivr.net`: un file del pacchetto Transformers.js;
@@ -16,7 +16,7 @@ Nessun testo del Pile in questo file: solo id, conteggi, quote e tempi (vedi `do
 - `huggingface.co`;
 - l'host di download dei file grandi a cui Hugging Face reindirizza: la pagina lo riporta in «servito da». Il 28/11 era `us.aws.cdn.hf.co`; può cambiare con la regione, quindi va riletto dalla prova sulla rete del cliente;
 - `cdn.jsdelivr.net`;
-- l'host della pagina (`*.github.io` o il dominio personalizzato).
+- l'host della pagina: `trainingdataextraction.monaripietro.it` (dominio personalizzato di GitHub Pages, dal 28/11).
 
 **Verifica del 27/11/2026 nell'ambiente di sviluppo (non rappresentativo):** la pagina funziona senza errori e segnala correttamente come bloccati gli host non raggiungibili, perché quell'ambiente li blocca. Il caso positivo (host raggiungibili) è da confermare sulla prima esecuzione reale.
 
